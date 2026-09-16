@@ -1,0 +1,4 @@
+pdv_id,sku_id,caso,y_vera,pred_nn,naive,giacenza,vendite_previste_15gg,qty_suggerita,azione
+MIL_01,SKU_A,caldo,34.0,29.8,25.7,28.0,29.8,12.0,valuta_riassortimento
+MIL_01,SKU_Z,SKU_nuovo,20.0,19.6,1.1,29.0,19.6,0.0,monitora
+ROM_NEW,SKU_A,PDV_nuovo,5.0,6.7,5.4,26.0,6.7,0.0,monitora

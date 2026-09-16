@@ -1,0 +1,19 @@
+{
+  "input": "/Users/mirkobergantino/Downloads/export24kk.csv",
+  "n_rows_read": 24204135,
+  "n_sale_rows": 14680828,
+  "n_stock_rows": 21527453,
+  "n_fact_rows": 20426468,
+  "n_pdv": 165,
+  "n_sku": 23161,
+  "date_min": "2024-01-01",
+  "date_max": "2026-08-18",
+  "tipodoc_vendita": "100",
+  "tipodoc_giacenza": [
+    "100",
+    "20",
+    "47",
+    "51"
+  ],
+  "generated_at": "2026-09-09T16:51:38"
+}

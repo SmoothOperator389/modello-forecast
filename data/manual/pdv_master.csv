@@ -1,0 +1,4 @@
+pdv_id,country,commerciale_riferimento,mq_espositivi,mq_stock,mq_totali,numero_fatturazioni,transit_time,data_apertura,pdv_strategico,city
+MIL_01,IT,Rossi,120,40,160,320,5,2024-03-01,1,Milan
+ROM_NEW,IT,Bianchi,90,30,120,40,5,2026-07-20,0,Rome
+NAP_02,IT,Verdi,100,35,135,210,6,2023-06-01,0,Naples

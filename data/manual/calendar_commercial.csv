@@ -1,0 +1,5 @@
+country,data_inizio,data_fine,evento,valore
+IT,2026-07-01,2026-07-31,is_saldi,1
+IT,2026-07-01,2026-12-31,collezione_start,2026-07-01
+DE,2026-07-15,2026-08-15,is_saldi,1
+FR,2026-06-20,2026-07-20,is_saldi,1

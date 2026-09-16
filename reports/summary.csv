@@ -1,0 +1,7 @@
+metrica,valore
+sample_train,303.0
+sample_test,21.0
+MAE_modello,3.18
+MAE_naive,5.0
+miglioramento_vs_naive_%,36.5
+parametri_modello,16626.0

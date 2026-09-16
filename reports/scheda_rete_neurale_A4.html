@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scheda rete neurale — stampabile A4</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 12mm 12mm 14mm;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      color: #111;
+      background: #fff;
+      font-size: 10.5pt;
+      line-height: 1.35;
+    }
+    .page {
+      max-width: 190mm;
+      margin: 0 auto;
+      padding: 8mm 6mm;
+    }
+    @media screen {
+      body { background: #e8e8e8; padding: 16px; }
+      .page {
+        background: #fff;
+        box-shadow: 0 2px 12px rgba(0,0,0,.12);
+        padding: 14mm 12mm;
+      }
+      .no-print {
+        max-width: 190mm;
+        margin: 0 auto 12px;
+        text-align: center;
+      }
+      .no-print button {
+        font-size: 14px;
+        padding: 10px 18px;
+        cursor: pointer;
+        border: 1px solid #333;
+        background: #111;
+        color: #fff;
+        border-radius: 6px;
+      }
+    }
+    @media print {
+      .no-print { display: none !important; }
+      .page { box-shadow: none; padding: 0; max-width: none; }
+      a { color: inherit; text-decoration: none; }
+    }
+
+    h1 {
+      font-size: 15pt;
+      margin: 0 0 2mm;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .meta {
+      font-size: 8.5pt;
+      color: #444;
+      margin-bottom: 4mm;
+    }
+    .pitch {
+      border: 1.5px solid #111;
+      padding: 3mm 3.5mm;
+      margin-bottom: 4mm;
+      font-size: 9.5pt;
+    }
+    .pitch strong { display: block; margin-bottom: 1mm; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.04em; }
+
+    .cols {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 4mm;
+      margin-bottom: 3mm;
+    }
+    h2 {
+      font-size: 9pt;
+      margin: 0 0 2mm;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid #111;
+      padding-bottom: 1mm;
+    }
+    ul {
+      margin: 0;
+      padding-left: 4mm;
+      font-size: 8.5pt;
+    }
+    li { margin-bottom: 1.2mm; }
+    .formula {
+      border: 1px solid #111;
+      padding: 2.5mm 3mm;
+      margin: 3mm 0;
+      text-align: center;
+      font-size: 10pt;
+      font-weight: 600;
+    }
+    .formula span { font-weight: 400; font-size: 8pt; color: #333; display: block; margin-top: 1mm; }
+
+    svg { width: 100%; height: auto; display: block; }
+
+    .foot {
+      margin-top: 3mm;
+      font-size: 7.5pt;
+      color: #555;
+      border-top: 1px solid #ccc;
+      padding-top: 2mm;
+      display: flex;
+      justify-content: space-between;
+      gap: 4mm;
+    }
+    .kpi {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2mm;
+      margin-bottom: 3mm;
+    }
+    .kpi div {
+      border: 1px solid #111;
+      padding: 2mm;
+      text-align: center;
+    }
+    .kpi b { display: block; font-size: 12pt; }
+    .kpi span { font-size: 7.5pt; color: #333; }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <button type="button" onclick="window.print()">Stampa / Salva PDF…</button>
+    <p style="font-size:13px;color:#333;margin:8px 0 0">
+      Su Mac: Stampa → PDF → “Salva come PDF”. Una pagina A4.
+    </p>
+  </div>
+
+  <div class="page">
+    <h1>Rete neurale forecast CDM — scheda studio</h1>
+    <p class="meta">
+      Dual-head TensorFlow/Keras · ~380&nbsp;000 parametri · orizzonte 15 giorni ·
+      file: testing/model/dual_head_tf.py
+    </p>
+
+    <div class="pitch">
+      <strong>In una frase</strong>
+      Parte dal ritmo di vendita delle ultime 2 settimane e lo corregge (meteo, sconto, negozio, novità articolo).
+      Due uscite: pezzi dell’articolo (usata) + totale reparto (solo allenamento). Supporto al team, non ordine automatico.
+    </div>
+
+    <div class="kpi">
+      <div><b>3,49</b><span>MAE rete (test)</span></div>
+      <div><b>8,15</b><span>MAE CDM regole</span></div>
+      <div><b>−57%</b><span>miglioramento vs CDM*</span></div>
+    </div>
+    <p class="meta" style="margin-top:-2mm">* Su dati sintetici Valido-like, non ancora su Valido live.</p>
+
+    <div class="formula">
+      previsione pezzi ≈ ReLU( prior × scale + delta )
+      <span>prior = run_rate_14g × 15 &nbsp;·&nbsp; scale ≈ 1 all’inizio &nbsp;·&nbsp; delta ≈ 0 all’inizio</span>
+    </div>
+
+    <!-- Diagram -->
+    <svg viewBox="0 0 700 520" xmlns="http://www.w3.org/2000/svg" aria-label="Schema rete">
+      <rect x="0.5" y="0.5" width="699" height="519" fill="#fff" stroke="#111" stroke-width="1"/>
+
+      <text x="12" y="18" font-size="10" font-weight="700" fill="#111">INGRESSI</text>
+
+      <rect x="10" y="26" width="175" height="58" fill="#fff" stroke="#111"/>
+      <text x="97" y="44" text-anchor="middle" font-size="10" font-weight="700">Embedding (13)</text>
+      <text x="97" y="58" text-anchor="middle" font-size="8" fill="#333">SKU, PDV, paese, modello…</text>
+      <text x="97" y="70" text-anchor="middle" font-size="8" fill="#333">ID → vettori densi</text>
+
+      <rect x="195" y="26" width="120" height="58" fill="#fff" stroke="#111"/>
+      <text x="255" y="48" text-anchor="middle" font-size="10" font-weight="700">Bande (3)</text>
+      <text x="255" y="64" text-anchor="middle" font-size="8" fill="#333">mq + meteo</text>
+
+      <rect x="325" y="26" width="130" height="58" fill="#fff" stroke="#111"/>
+      <text x="390" y="48" text-anchor="middle" font-size="10" font-weight="700">Numeriche (~57)</text>
+      <text x="390" y="64" text-anchor="middle" font-size="8" fill="#333">RR, sconto, età…</text>
+
+      <rect x="465" y="26" width="110" height="58" fill="#f0f0f0" stroke="#111" stroke-width="1.5"/>
+      <text x="520" y="48" text-anchor="middle" font-size="10" font-weight="700">sku_prior</text>
+      <text x="520" y="64" text-anchor="middle" font-size="8" fill="#333">RR×15</text>
+
+      <line x1="97" y1="84" x2="300" y2="108" stroke="#111" stroke-width="1"/>
+      <line x1="255" y1="84" x2="300" y2="108" stroke="#111" stroke-width="1"/>
+      <line x1="390" y1="84" x2="300" y2="108" stroke="#111" stroke-width="1"/>
+      <line x1="520" y1="84" x2="520" y2="360" stroke="#111" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="575" y="220" font-size="8" fill="#333" transform="rotate(90 575 220)">prior → × (salta tronco)</text>
+
+      <rect x="210" y="108" width="180" height="36" fill="#fff" stroke="#111"/>
+      <text x="300" y="131" text-anchor="middle" font-size="10" font-weight="700">Concatenate</text>
+
+      <line x1="300" y1="144" x2="300" y2="162" stroke="#111" stroke-width="1.2"/>
+      <polygon points="296,158 304,158 300,166" fill="#111"/>
+
+      <text x="12" y="175" font-size="10" font-weight="700">TRONCO RESIDUALE</text>
+
+      <rect x="200" y="182" width="200" height="42" fill="#f0f0f0" stroke="#111"/>
+      <text x="300" y="200" text-anchor="middle" font-size="10" font-weight="700">Residual 256</text>
+      <text x="300" y="214" text-anchor="middle" font-size="7.5" fill="#333">Dense→BN→ReLU→Drop→Dense→BN→Add→ReLU</text>
+
+      <line x1="300" y1="224" x2="300" y2="238" stroke="#111"/>
+      <polygon points="296,234 304,234 300,242" fill="#111"/>
+
+      <rect x="200" y="242" width="200" height="42" fill="#f0f0f0" stroke="#111"/>
+      <text x="300" y="260" text-anchor="middle" font-size="10" font-weight="700">Residual 256</text>
+      <text x="300" y="274" text-anchor="middle" font-size="7.5" fill="#333">idem · dropout 0.15</text>
+
+      <line x1="300" y1="284" x2="300" y2="298" stroke="#111"/>
+      <polygon points="296,294 304,294 300,302" fill="#111"/>
+
+      <rect x="200" y="302" width="200" height="42" fill="#f0f0f0" stroke="#111"/>
+      <text x="300" y="320" text-anchor="middle" font-size="10" font-weight="700">Residual 128</text>
+      <text x="300" y="334" text-anchor="middle" font-size="7.5" fill="#333">idem · dropout 0.10</text>
+
+      <line x1="300" y1="344" x2="300" y2="358" stroke="#111"/>
+      <line x1="150" y1="358" x2="500" y2="358" stroke="#111"/>
+      <line x1="150" y1="358" x2="150" y2="372" stroke="#111"/>
+      <line x1="500" y1="358" x2="500" y2="372" stroke="#111"/>
+      <polygon points="146,368 154,368 150,376" fill="#111"/>
+      <polygon points="496,368 504,368 500,376" fill="#111"/>
+
+      <text x="12" y="370" font-size="10" font-weight="700">DUE TESTE</text>
+
+      <!-- SKU -->
+      <rect x="55" y="378" width="190" height="36" fill="#f0f0f0" stroke="#111" stroke-width="1.5"/>
+      <text x="150" y="400" text-anchor="middle" font-size="10" font-weight="700">Head SKU · Dense(64)</text>
+
+      <line x1="110" y1="414" x2="110" y2="426" stroke="#111"/>
+      <line x1="190" y1="414" x2="190" y2="426" stroke="#111"/>
+
+      <rect x="60" y="426" width="95" height="32" fill="#fff" stroke="#111"/>
+      <text x="107" y="446" text-anchor="middle" font-size="9" font-weight="700">scale (softplus)</text>
+
+      <rect x="165" y="426" width="80" height="32" fill="#fff" stroke="#111"/>
+      <text x="205" y="446" text-anchor="middle" font-size="9" font-weight="700">delta</text>
+
+      <line x1="520" y1="360" x2="107" y2="470" stroke="#111" stroke-dasharray="4 3"/>
+      <line x1="107" y1="458" x2="107" y2="470" stroke="#111"/>
+      <rect x="60" y="470" width="95" height="24" fill="#f0f0f0" stroke="#111"/>
+      <text x="107" y="486" text-anchor="middle" font-size="9" font-weight="700">× prior</text>
+
+      <line x1="107" y1="494" x2="150" y2="505" stroke="#111"/>
+      <line x1="205" y1="458" x2="205" y2="500" stroke="#111"/>
+      <line x1="205" y1="500" x2="165" y2="505" stroke="#111"/>
+
+      <rect x="70" y="505" width="160" height="28" fill="#f0f0f0" stroke="#111" stroke-width="1.5"/>
+      <text x="150" y="523" text-anchor="middle" font-size="9" font-weight="700">y_sku = ReLU(scaled+δ)  ★</text>
+
+      <!-- CAT -->
+      <rect x="405" y="378" width="190" height="36" fill="#fff" stroke="#111"/>
+      <text x="500" y="400" text-anchor="middle" font-size="10" font-weight="700">stop_gradient(x)</text>
+
+      <line x1="500" y1="414" x2="500" y2="428" stroke="#111"/>
+      <rect x="405" y="428" width="190" height="36" fill="#fff" stroke="#111"/>
+      <text x="500" y="450" text-anchor="middle" font-size="10" font-weight="700">Head CAT · Dense(64)</text>
+
+      <line x1="500" y1="464" x2="500" y2="478" stroke="#111"/>
+      <rect x="405" y="478" width="190" height="36" fill="#fff" stroke="#111"/>
+      <text x="500" y="500" text-anchor="middle" font-size="9" font-weight="700">y_cat softplus · log1p(reparto)</text>
+    </svg>
+
+    <div class="cols" style="margin-top:3mm">
+      <div>
+        <h2>Cosa dire in call (script 40 sec)</h2>
+        <ul>
+          <li>Stima pezzi per negozio×articolo a 15 giorni.</li>
+          <li>Parte dal ritmo recente (naive) e lo corregge.</li>
+          <li>Tronco residuale condivide la rappresentazione.</li>
+          <li>Uscita A = pezzi SKU; uscita B = controllo reparto in train.</li>
+          <li>Poi: giacenza + transit → qty suggerita; review umana.</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Training (numeri)</h2>
+        <ul>
+          <li>Loss Huber: SKU peso 1.0 · CAT 0.15</li>
+          <li>Adam + CosineDecay · early stop MAE</li>
+          <li>~2,8M train / 220k test · 20 epoche</li>
+          <li>Train raro · inferenza ogni 15 gg</li>
+          <li>Doc Valido: 100 vendita · 47+20 stock</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span>modello-forecast · scheda stampabile</span>
+      <span>★ = output operativo</span>
+    </div>
+  </div>
+
+  <script>
+    // Auto-focus print on ?print=1
+    if (location.search.includes("print=1")) {
+      setTimeout(() => window.print(), 300);
+    }
+  </script>
+</body>
+</html>

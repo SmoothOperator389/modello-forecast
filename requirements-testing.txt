@@ -1,0 +1,3 @@
+# Solo pipeline dati testing (run_validate) — NO TensorFlow, NO pyarrow
+pandas>=2.0
+numpy>=1.24

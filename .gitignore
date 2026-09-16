@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Virtualenv (locali, ricreabili)
+.venv/
+.venv-*/
+.venv2/
+venv/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+credentials.json
+**/secrets/
+
+# Dati reali pesanti (rigenerabili con ingest)
+data/real/fact_daily.csv
+data/real_smoke/fact_daily.csv
+data/real_ingest.log
+*.path
+
+# Output training / fake data (molti GB)
+testing/data/output/
+*.h5
+*.keras
+*.ckpt
+*.pt
+*.pth
+checkpoints/
+runs/
+wandb/
+mlruns/
+
+# Log / cache locali
+*.log
+.cache/
+tmp/
+temp/
