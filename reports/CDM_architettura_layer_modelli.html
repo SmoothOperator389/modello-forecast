@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Architettura layer — Dual-head + LightGBM</title>
+  <style>
+    :root {
+      --bg: #f2f4f7;
+      --panel: #fff;
+      --ink: #1a1f27;
+      --muted: #5a6575;
+      --line: #9aa6b5;
+      --tf: #2563a8;
+      --tf-fill: #e8f1fb;
+      --lg: #0d7a6f;
+      --lg-fill: #e6f5f2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    header {
+      background: linear-gradient(120deg, #1a3a5c 0%, #0d5c54 100%);
+      color: #fff;
+      padding: 22px 20px 18px;
+    }
+    header h1 { margin: 0 0 4px; font-size: 1.35rem; font-weight: 650; }
+    header p { margin: 0; opacity: 0.85; font-size: 0.92rem; }
+    nav {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      max-width: 980px; margin: 14px auto 0; padding: 0 16px;
+    }
+    nav a {
+      text-decoration: none; color: var(--ink);
+      background: var(--panel);
+      border: 1px solid #c9d2dc; border-radius: 8px;
+      padding: 8px 14px; font-size: 0.9rem; font-weight: 600;
+    }
+    nav a:hover { border-color: var(--tf); color: var(--tf); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 16px 16px 48px; }
+    section {
+      background: var(--panel);
+      border: 1px solid #d5dde6;
+      border-radius: 12px;
+      padding: 18px 16px 22px;
+      margin-bottom: 20px;
+    }
+    section h2 {
+      margin: 0 0 4px;
+      font-size: 1.15rem;
+      border-bottom: 2px solid;
+      padding-bottom: 6px;
+      display: inline-block;
+    }
+    #tf h2 { border-color: var(--tf); color: var(--tf); }
+    #lgbm h2 { border-color: var(--lg); color: var(--lg); }
+    .sub { color: var(--muted); font-size: 0.9rem; margin: 0 0 14px; }
+    .hint {
+      background: #f7f9fb;
+      border-left: 3px solid var(--line);
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .diagram { overflow-x: auto; }
+    svg { display: block; width: 100%; height: auto; max-width: 760px; margin: 0 auto; }
+    .formula {
+      margin-top: 14px;
+      text-align: center;
+      font-weight: 650;
+      font-size: 0.95rem;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    #tf .formula { background: var(--tf-fill); color: var(--tf); }
+    #lgbm .formula { background: var(--lg-fill); color: var(--lg); }
+    code { font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Struttura dei due motori</h1>
+    <p>Dual-head TensorFlow (layer) · LightGBM (ensemble di alberi) — fedele al codice di produzione</p>
+  </header>
+  <nav>
+    <a href="#tf">Dual-head TF</a>
+    <a href="#lgbm">LightGBM</a>
+    <a href="CDM_architettura_layer_modelli.pdf">Apri PDF</a>
+  </nav>
+
+  <div class="wrap">
+    <section id="tf">
+      <h2>Dual-head TensorFlow — stack dei layer</h2>
+      <p class="sub"><code>testing/model/dual_head_tf.py</code> · flusso top → bottom</p>
+      <div class="hint">
+        Entrano chi/cosa + numeri + prior → tronco residuale 256→256→128 → due teste.
+        Il <em>prior</em> (linea tratteggiata) salta il tronco e arriva alla Multiply.
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 720 960" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Layer Dual-head">
+          <defs>
+            <marker id="a1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="#9aa6b5"/>
+            </marker>
+          </defs>
+
+          <text x="20" y="22" fill="#2563a8" font-size="12" font-weight="700">1 · INGRESSI</text>
+
+          <rect x="16" y="34" width="168" height="88" rx="8" fill="#e8f1fb" stroke="#2563a8"/>
+          <text x="100" y="56" text-anchor="middle" font-size="12" font-weight="650" fill="#1a1f27">Embedding ×13</text>
+          <text x="100" y="74" text-anchor="middle" font-size="10" fill="#5a6575">Input int → Emb → Flat</text>
+          <text x="100" y="90" text-anchor="middle" font-size="10" fill="#5a6575">sku:12 pdv:8 country:6</text>
+          <text x="100" y="106" text-anchor="middle" font-size="10" fill="#5a6575">modello, tessuto, classi…</text>
+
+          <rect x="196" y="34" width="140" height="88" rx="8" fill="#eef2f7" stroke="#9aa6b5"/>
+          <text x="266" y="56" text-anchor="middle" font-size="12" font-weight="650">Bande ×3</text>
+          <text x="266" y="76" text-anchor="middle" font-size="10" fill="#5a6575">mq_espo · mq_stock</text>
+          <text x="266" y="92" text-anchor="middle" font-size="10" fill="#5a6575">weather_regime</text>
+          <text x="266" y="108" text-anchor="middle" font-size="10" fill="#5a6575">Embedding band</text>
+
+          <rect x="348" y="34" width="168" height="88" rx="8" fill="#eef2f7" stroke="#9aa6b5"/>
+          <text x="432" y="56" text-anchor="middle" font-size="12" font-weight="650">Numeric ×57</text>
+          <text x="432" y="76" text-anchor="middle" font-size="10" fill="#5a6575">z-score</text>
+          <text x="432" y="92" text-anchor="middle" font-size="10" fill="#5a6575">BatchNorm (num_bn)</text>
+          <text x="432" y="108" text-anchor="middle" font-size="10" fill="#5a6575">RR, meteo, sconto…</text>
+
+          <rect x="528" y="34" width="176" height="88" rx="8" fill="#dceaf8" stroke="#2563a8" stroke-width="2"/>
+          <text x="616" y="58" text-anchor="middle" font-size="12" font-weight="650">sku_prior</text>
+          <text x="616" y="78" text-anchor="middle" font-size="10" fill="#5a6575">run_rate_14d × H</text>
+          <text x="616" y="94" text-anchor="middle" font-size="10" fill="#5a6575">bypass tronco</text>
+          <text x="616" y="110" text-anchor="middle" font-size="10" fill="#2563a8">→ Multiply</text>
+
+          <line x1="100" y1="122" x2="360" y2="148" stroke="#9aa6b5" stroke-width="1.4"/>
+          <line x1="266" y1="122" x2="360" y2="148" stroke="#9aa6b5" stroke-width="1.4"/>
+          <line x1="432" y1="122" x2="360" y2="148" stroke="#9aa6b5" stroke-width="1.4"/>
+          <line x1="616" y1="122" x2="616" y2="730" stroke="#2563a8" stroke-width="1.5" stroke-dasharray="5 4"/>
+
+          <rect x="240" y="148" width="240" height="42" rx="8" fill="#eef2f7" stroke="#9aa6b5"/>
+          <text x="360" y="166" text-anchor="middle" font-size="12" font-weight="650">Concatenate</text>
+          <text x="360" y="182" text-anchor="middle" font-size="10" fill="#5a6575">emb ∥ numeric_bn</text>
+
+          <line x1="360" y1="190" x2="360" y2="218" stroke="#9aa6b5" stroke-width="1.4" marker-end="url(#a1)"/>
+          <text x="20" y="230" fill="#2563a8" font-size="12" font-weight="700">2 · TRONCO RESIDUALE</text>
+
+          <rect x="230" y="242" width="260" height="70" rx="8" fill="#e8f1fb" stroke="#2563a8" stroke-width="1.5"/>
+          <text x="360" y="264" text-anchor="middle" font-size="13" font-weight="650">Residual #1 · 256</text>
+          <text x="360" y="282" text-anchor="middle" font-size="10" fill="#5a6575">Dense→BN→ReLU→Drop(0.15)</text>
+          <text x="360" y="298" text-anchor="middle" font-size="10" fill="#5a6575">Dense→BN→Add(skip)→ReLU</text>
+
+          <line x1="360" y1="312" x2="360" y2="332" stroke="#9aa6b5" stroke-width="1.4" marker-end="url(#a1)"/>
+
+          <rect x="230" y="332" width="260" height="70" rx="8" fill="#e8f1fb" stroke="#2563a8" stroke-width="1.5"/>
+          <text x="360" y="354" text-anchor="middle" font-size="13" font-weight="650">Residual #2 · 256</text>
+          <text x="360" y="372" text-anchor="middle" font-size="10" fill="#5a6575">Dense→BN→ReLU→Drop(0.15)</text>
+          <text x="360" y="388" text-anchor="middle" font-size="10" fill="#5a6575">Dense→BN→Add(skip)→ReLU</text>
+
+          <line x1="360" y1="402" x2="360" y2="422" stroke="#9aa6b5" stroke-width="1.4" marker-end="url(#a1)"/>
+
+          <rect x="230" y="422" width="260" height="70" rx="8" fill="#e8f1fb" stroke="#2563a8" stroke-width="1.5"/>
+          <text x="360" y="444" text-anchor="middle" font-size="13" font-weight="650">Residual #3 · 128</text>
+          <text x="360" y="462" text-anchor="middle" font-size="10" fill="#5a6575">Dense→BN→ReLU→Drop(0.10)</text>
+          <text x="360" y="478" text-anchor="middle" font-size="10" fill="#5a6575">Dense→BN→Add(skip*)→ReLU</text>
+
+          <!-- zoom residual -->
+          <rect x="520" y="250" width="184" height="200" rx="8" fill="#fff" stroke="#2563a8"/>
+          <text x="612" y="272" text-anchor="middle" font-size="11" font-weight="650" fill="#2563a8">Zoom residual</text>
+          <text x="612" y="296" text-anchor="middle" font-size="10" fill="#5a6575">x ──┐</text>
+          <text x="612" y="314" text-anchor="middle" font-size="10" fill="#5a6575">   Dense→BN→ReLU→Drop</text>
+          <text x="612" y="332" text-anchor="middle" font-size="10" fill="#5a6575">   Dense→BN</text>
+          <text x="612" y="350" text-anchor="middle" font-size="10" fill="#5a6575">x ──┴── Add → ReLU</text>
+          <text x="612" y="378" text-anchor="middle" font-size="10" fill="#5a6575">* se dim cambia:</text>
+          <text x="612" y="396" text-anchor="middle" font-size="10" fill="#5a6575">Dense(no bias) su skip</text>
+          <text x="612" y="424" text-anchor="middle" font-size="10" fill="#5a6575">uscita = vettore x</text>
+
+          <line x1="360" y1="492" x2="360" y2="520" stroke="#9aa6b5" stroke-width="1.4"/>
+          <line x1="170" y1="520" x2="550" y2="520" stroke="#9aa6b5" stroke-width="1.4"/>
+          <line x1="170" y1="520" x2="170" y2="548" stroke="#9aa6b5" stroke-width="1.4" marker-end="url(#a1)"/>
+          <line x1="550" y1="520" x2="550" y2="548" stroke="#9aa6b5" stroke-width="1.4" marker-end="url(#a1)"/>
+
+          <text x="20" y="544" fill="#2563a8" font-size="12" font-weight="700">3 · DUE TESTE</text>
+
+          <rect x="40" y="552" width="260" height="48" rx="8" fill="#e8f1fb" stroke="#2563a8" stroke-width="2"/>
+          <text x="170" y="572" text-anchor="middle" font-size="12" font-weight="650">Head SKU · Dense(64)+Drop</text>
+          <text x="170" y="588" text-anchor="middle" font-size="10" fill="#5a6575">uscita operativa</text>
+
+          <line x1="110" y1="600" x2="110" y2="620" stroke="#9aa6b5" marker-end="url(#a1)"/>
+          <line x1="230" y1="600" x2="230" y2="620" stroke="#9aa6b5" marker-end="url(#a1)"/>
+
+          <rect x="50" y="620" width="120" height="44" rx="8" fill="#dceaf8" stroke="#2563a8"/>
+          <text x="110" y="640" text-anchor="middle" font-size="11" font-weight="650">sku_scale</text>
+          <text x="110" y="656" text-anchor="middle" font-size="9" fill="#5a6575">Softplus · init≈1</text>
+
+          <rect x="170" y="620" width="120" height="44" rx="8" fill="#dceaf8" stroke="#2563a8"/>
+          <text x="230" y="640" text-anchor="middle" font-size="11" font-weight="650">sku_delta</text>
+          <text x="230" y="656" text-anchor="middle" font-size="9" fill="#5a6575">lineare · init=0</text>
+
+          <line x1="616" y1="730" x2="110" y2="686" stroke="#2563a8" stroke-width="1.4" stroke-dasharray="5 4"/>
+          <line x1="110" y1="664" x2="110" y2="686" stroke="#9aa6b5" marker-end="url(#a1)"/>
+
+          <rect x="50" y="686" width="120" height="36" rx="8" fill="#dceaf8" stroke="#2563a8" stroke-width="2"/>
+          <text x="110" y="710" text-anchor="middle" font-size="12" font-weight="650">× prior</text>
+
+          <line x1="110" y1="722" x2="170" y2="748" stroke="#9aa6b5"/>
+          <line x1="230" y1="664" x2="230" y2="736" stroke="#9aa6b5"/>
+          <line x1="230" y1="736" x2="190" y2="748" stroke="#9aa6b5"/>
+
+          <rect x="70" y="748" width="200" height="50" rx="8" fill="#dceaf8" stroke="#2563a8" stroke-width="2"/>
+          <text x="170" y="770" text-anchor="middle" font-size="12" font-weight="650">y_sku = ReLU(·)</text>
+          <text x="170" y="788" text-anchor="middle" font-size="10" fill="#5a6575">pezzi · output usato</text>
+
+          <rect x="420" y="552" width="260" height="48" rx="8" fill="#eef2f7" stroke="#9aa6b5"/>
+          <text x="550" y="572" text-anchor="middle" font-size="12" font-weight="650">stop_gradient(x)</text>
+          <text x="550" y="588" text-anchor="middle" font-size="10" fill="#5a6575">tronco non aggiornato</text>
+
+          <line x1="550" y1="600" x2="550" y2="620" stroke="#9aa6b5" marker-end="url(#a1)"/>
+          <rect x="420" y="620" width="260" height="48" rx="8" fill="#eef2f7" stroke="#9aa6b5"/>
+          <text x="550" y="640" text-anchor="middle" font-size="12" font-weight="650">Head CAT · Dense(64)+Drop</text>
+          <text x="550" y="656" text-anchor="middle" font-size="10" fill="#5a6575">solo allenamento</text>
+
+          <line x1="550" y1="668" x2="550" y2="690" stroke="#9aa6b5" marker-end="url(#a1)"/>
+          <rect x="420" y="690" width="260" height="50" rx="8" fill="#eef2f7" stroke="#9aa6b5"/>
+          <text x="550" y="712" text-anchor="middle" font-size="12" font-weight="650">y_cat = Softplus(…)</text>
+          <text x="550" y="730" text-anchor="middle" font-size="10" fill="#5a6575">log1p(totale reparto)</text>
+
+          <text x="170" y="830" text-anchor="middle" fill="#2563a8" font-size="11" font-weight="650">← usato in inference</text>
+          <text x="550" y="830" text-anchor="middle" fill="#5a6575" font-size="11">regolarizzatore · peso 0.15</text>
+          <text x="360" y="870" text-anchor="middle" fill="#5a6575" font-size="11">Loss: Huber(y_sku)×1.0 + Huber(y_cat)×0.15 · Adam + CosineDecay</text>
+          <text x="360" y="900" text-anchor="middle" fill="#5a6575" font-size="11">H = 15 nella rete principale; h30/h60/h90 usano soprattutto LGBM nativi</text>
+        </svg>
+      </div>
+      <div class="formula">y_sku = ReLU( sku_prior × softplus(scale) + delta )</div>
+    </section>
+
+    <section id="lgbm">
+      <h2>LightGBM — struttura dell’ensemble</h2>
+      <p class="sub"><code>production/run_train_horizon_native_real.py</code> · non è a layer: è boosting di alberi</p>
+      <div class="hint">
+        Due booster (Tweedie globale + specialista high-volume) → mix in base al prior.
+        Ogni albero corregge l’errore dei precedenti (leaf-wise growth).
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 720 780" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Struttura LightGBM">
+          <defs>
+            <marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="#9aa6b5"/>
+            </marker>
+          </defs>
+
+          <text x="20" y="24" fill="#0d7a6f" font-size="12" font-weight="700">1 · FEATURE TABULARI</text>
+          <rect x="40" y="36" width="640" height="70" rx="8" fill="#e6f5f2" stroke="#0d7a6f" stroke-width="1.5"/>
+          <text x="360" y="60" text-anchor="middle" font-size="13" font-weight="650">X = NUMERIC(~57) + sku_prior + CAT (categorie + bande)</text>
+          <text x="360" y="80" text-anchor="middle" font-size="11" fill="#5a6575">categorical_feature = split sui livelli (no one-hot)</text>
+          <text x="360" y="96" text-anchor="middle" font-size="11" fill="#5a6575">y = pezzi sull’orizzonte H (15 / 30 / 60 / 90)</text>
+
+          <line x1="360" y1="106" x2="360" y2="130" stroke="#9aa6b5" marker-end="url(#a2)"/>
+          <text x="20" y="148" fill="#0d7a6f" font-size="12" font-weight="700">2 · DUE BOOSTER</text>
+
+          <!-- Tweedie -->
+          <rect x="40" y="160" width="300" height="220" rx="8" fill="#e6f5f2" stroke="#0d7a6f" stroke-width="2"/>
+          <text x="190" y="182" text-anchor="middle" font-size="13" font-weight="650">A · Tweedie (globale)</text>
+          <text x="190" y="200" text-anchor="middle" font-size="10" fill="#5a6575">objective=tweedie p=1.3</text>
+          <text x="190" y="216" text-anchor="middle" font-size="10" fill="#5a6575">≤2500 alberi · leaves=95 · lr=0.04</text>
+
+          <!-- mini forest -->
+          <g transform="translate(70,230)" stroke="#0d7a6f" fill="#0d7a6f" stroke-width="1.2">
+            <circle cx="40" cy="10" r="4"/><line x1="40" y1="14" x2="20" y2="32"/><line x1="40" y1="14" x2="60" y2="32"/>
+            <circle cx="20" cy="34" r="3"/><circle cx="60" cy="34" r="3"/>
+            <line x1="20" y1="37" x2="10" y2="52"/><line x1="20" y1="37" x2="30" y2="52"/>
+            <line x1="60" y1="37" x2="50" y2="52"/><line x1="60" y1="37" x2="70" y2="52"/>
+            <rect x="5" y="52" width="10" height="8" rx="1"/><rect x="25" y="52" width="10" height="8" rx="1"/>
+            <rect x="45" y="52" width="10" height="8" rx="1"/><rect x="65" y="52" width="10" height="8" rx="1"/>
+            <text x="100" y="28" fill="#1a1f27" stroke="none" font-size="11" font-weight="650">albero 1</text>
+            <text x="100" y="44" fill="#5a6575" stroke="none" font-size="10">+ albero 2</text>
+            <text x="100" y="60" fill="#5a6575" stroke="none" font-size="10">+ … + albero K</text>
+          </g>
+          <text x="190" y="330" text-anchor="middle" font-size="11" fill="#1a1f27">F(x)=Σ η·treeₖ(x)</text>
+          <text x="190" y="350" text-anchor="middle" font-size="11" fill="#0d7a6f" font-weight="650">pred_tw = max(predict, 0)</text>
+          <text x="190" y="368" text-anchor="middle" font-size="10" fill="#5a6575">zeri + coda lunga</text>
+
+          <!-- High -->
+          <rect x="380" y="160" width="300" height="220" rx="8" fill="#e6f5f2" stroke="#0d7a6f" stroke-width="2"/>
+          <text x="530" y="182" text-anchor="middle" font-size="13" font-weight="650">B · High-volume</text>
+          <text x="530" y="200" text-anchor="middle" font-size="10" fill="#5a6575">objective=regression su log1p(y)</text>
+          <text x="530" y="216" text-anchor="middle" font-size="10" fill="#5a6575">solo prior alti · leaves=63 · lr=0.05</text>
+
+          <g transform="translate(410,230)" stroke="#0d7a6f" fill="#0d7a6f" stroke-width="1.2">
+            <circle cx="40" cy="10" r="4"/><line x1="40" y1="14" x2="20" y2="32"/><line x1="40" y1="14" x2="60" y2="32"/>
+            <circle cx="20" cy="34" r="3"/><circle cx="60" cy="34" r="3"/>
+            <line x1="20" y1="37" x2="10" y2="52"/><line x1="20" y1="37" x2="30" y2="52"/>
+            <line x1="60" y1="37" x2="50" y2="52"/><line x1="60" y1="37" x2="70" y2="52"/>
+            <rect x="5" y="52" width="10" height="8" rx="1"/><rect x="25" y="52" width="10" height="8" rx="1"/>
+            <rect x="45" y="52" width="10" height="8" rx="1"/><rect x="65" y="52" width="10" height="8" rx="1"/>
+            <text x="100" y="28" fill="#1a1f27" stroke="none" font-size="11" font-weight="650">specialista</text>
+            <text x="100" y="44" fill="#5a6575" stroke="none" font-size="10">train se prior ≥ soglia</text>
+            <text x="100" y="60" fill="#5a6575" stroke="none" font-size="10">corregge sottostima</text>
+          </g>
+          <text x="530" y="330" text-anchor="middle" font-size="11" fill="#1a1f27">su log · poi expm1</text>
+          <text x="530" y="350" text-anchor="middle" font-size="11" fill="#0d7a6f" font-weight="650">pred_hi = expm1(predict)</text>
+          <text x="530" y="368" text-anchor="middle" font-size="10" fill="#5a6575">voli alti</text>
+
+          <line x1="190" y1="380" x2="360" y2="410" stroke="#9aa6b5"/>
+          <line x1="530" y1="380" x2="360" y2="410" stroke="#9aa6b5"/>
+          <line x1="360" y1="410" x2="360" y2="430" stroke="#9aa6b5" marker-end="url(#a2)"/>
+
+          <text x="20" y="448" fill="#0d7a6f" font-size="12" font-weight="700">3 · ANATOMIA DI UNO SPLIT</text>
+          <rect x="40" y="458" width="640" height="100" rx="8" fill="#fff" stroke="#0d7a6f"/>
+          <text x="360" y="482" text-anchor="middle" font-size="12" font-weight="650">radice → split su feature → foglie con contributo numerico</text>
+          <text x="360" y="504" text-anchor="middle" font-size="11" fill="#5a6575">es.  run_rate_14d &lt; 0.8   |   sku_id ∈ {…}   |   temp_media ≥ 22</text>
+          <text x="360" y="526" text-anchor="middle" font-size="11" fill="#5a6575">crescita leaf-wise (non level-wise) · early stopping su MAE validazione</text>
+          <text x="360" y="544" text-anchor="middle" font-size="11" fill="#5a6575">Tweedie: patience 100 · High: patience 80</text>
+
+          <line x1="360" y1="558" x2="360" y2="580" stroke="#9aa6b5" marker-end="url(#a2)"/>
+          <text x="20" y="598" fill="#0d7a6f" font-size="12" font-weight="700">4 · BLEND DI DEPLOY</text>
+          <rect x="40" y="608" width="640" height="120" rx="8" fill="#e6f5f2" stroke="#0d7a6f" stroke-width="2"/>
+          <text x="360" y="634" text-anchor="middle" font-size="13" font-weight="650">prior = run_rate_14d × H</text>
+          <text x="360" y="658" text-anchor="middle" font-size="12">prior basso → solo Tweedie</text>
+          <text x="360" y="678" text-anchor="middle" font-size="12">prior alto → 0.55·Tweedie + 0.45·High  ·  floor ≥ 0.35·naive</text>
+          <text x="360" y="702" text-anchor="middle" font-size="11" fill="#5a6575">Sul 15g: ensemble + Dual-head + routing calibrato per fascia di prior</text>
+          <text x="360" y="716" text-anchor="middle" font-size="11" fill="#5a6575">Su h30/h60/h90: questo blend LGBM nativo è il motore principale</text>
+        </svg>
+      </div>
+      <div class="formula">pred = mix(Tweedie, High | prior) · con floor verso naive sui volumi alti</div>
+    </section>
+  </div>
+</body>
+</html>

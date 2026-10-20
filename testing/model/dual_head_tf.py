@@ -18,6 +18,19 @@ UNK_TOKEN = "__UNK__"
 UNK_DROPOUT = 0.02
 
 
+def _stop_gradient(t):
+    return tf.stop_gradient(t)
+
+
+def load_dual_head_model(path: Path | str):
+    """Carica DualHead gestendo Lambda custom (_stop_gradient)."""
+    return keras.models.load_model(
+        path,
+        custom_objects={"_stop_gradient": _stop_gradient},
+        safe_mode=False,
+    )
+
+
 def load_encoder_vocab(data_dir: Path | None = None) -> pd.DataFrame:
     """Anagrafica catalogo/negozi: vocabolario noto anche senza vendite in train."""
     root = data_dir or DATA_DIR
@@ -148,7 +161,7 @@ def build_dual_head_model(
 
     cat_head = keras.layers.Dense(64, activation="relu")(
         keras.layers.Lambda(
-            lambda t: tf.stop_gradient(t),
+            _stop_gradient,
             output_shape=lambda s: s,
             name="cat_stop_grad",
         )(x)

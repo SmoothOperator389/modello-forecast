@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scuola Dual-head — impara la rete neurale CDM</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">Scuola Dual-head</div>
+      <div class="brand-sub">Dal zero alla previsione pezzi</div>
+      <div class="progress-wrap">
+        <strong>Il tuo percorso</strong>
+        <div id="progress-label" class="tiny" style="color:#9ab;margin-top:4px">0 / 12 capitoli</div>
+        <div class="bar"><i id="progress-bar"></i></div>
+      </div>
+      <nav class="nav" id="nav">
+        <div class="nav-sec">Partenza</div>
+        <a href="#c00" data-id="c00"><i class="ck"></i> Benvenuto</a>
+        <a href="#c01" data-id="c01"><i class="ck"></i> 1 · Cosa stiamo prevedendo</a>
+        <a href="#c02" data-id="c02"><i class="ck"></i> 2 · Dato grezzo → feature</a>
+        <div class="nav-sec">Fondamenti</div>
+        <a href="#c03" data-id="c03"><i class="ck"></i> 3 · Cos’è un neurone</a>
+        <a href="#c04" data-id="c04"><i class="ck"></i> 4 · Attivazioni (ReLU…)</a>
+        <a href="#c05" data-id="c05"><i class="ck"></i> 5 · Embedding</a>
+        <a href="#c06" data-id="c06"><i class="ck"></i> 6 · Layer Dense & BN</a>
+        <div class="nav-sec">La vostra rete</div>
+        <a href="#c07" data-id="c07"><i class="ck"></i> 7 · Residual blocks</a>
+        <a href="#c08" data-id="c08"><i class="ck"></i> 8 · Dual-head + prior</a>
+        <a href="#c09" data-id="c09"><i class="ck"></i> 9 · Training vs inference</a>
+        <a href="#c10" data-id="c10"><i class="ck"></i> 10 · LightGBM in 5 minuti</a>
+        <div class="nav-sec">Pratica</div>
+        <a href="#c11" data-id="c11"><i class="ck"></i> 11 · Esempio guidato</a>
+        <a href="#c12" data-id="c12"><i class="ck"></i> 12 · Glossario & risorse</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="hero" id="c00">
+        <h1>Impara la rete neurale come un neofita</h1>
+        <p>
+          Questa scuola spiega <em>ogni</em> pezzo della Dual-head usata per il forecast CDM:
+          dai scontrini fino ai pezzi previsti. Niente magia — solo passaggi che puoi toccare.
+        </p>
+        <div class="hero-meta">
+          <span class="pill">~45–90 min di studio</span>
+          <span class="pill">Demo interattive</span>
+          <span class="pill">Quiz per capitolo</span>
+          <span class="pill">Progresso salvato sul browser</span>
+        </div>
+        <div class="callout idea" style="margin-top:18px">
+          <strong>Come usarla</strong>
+          Segui i capitoli in ordine. Segna “Capitolo completato” solo quando il quiz ti torna.
+          Il progresso resta salvato su questo computer.
+        </div>
+        <button class="mark-done" data-mark="c00">Segna benvenuto come letto</button>
+      </header>
+
+      <!-- 1 -->
+      <section class="chapter" id="c01">
+        <h2>1 · Cosa stiamo prevedendo?</h2>
+        <p class="lede">Prima della rete: capire la domanda di business.</p>
+        <p>
+          La rete risponde a: <strong>“Quanti pezzi di questo SKU venderà questo negozio nei prossimi 15 giorni?”</strong>
+          (poi esistono anche modelli a 30/60/90 giorni, spesso con LightGBM).
+        </p>
+        <ul>
+          <li><strong>SKU</strong> = un prodotto specifico (es. una giacca in un colore).</li>
+          <li><strong>PDV</strong> = punto vendita / negozio.</li>
+          <li><strong>as_of</strong> = la data “fino a ieri”: usiamo solo lo storico ≤ as_of (niente sguardi al futuro).</li>
+          <li><strong>Orizzonte</strong> = quanti giorni guardiamo avanti (15, 30, 60, 90).</li>
+        </ul>
+        <div class="callout ok">
+          <strong>Analogia</strong>
+          Come prevedere quante pizze venderà un forno la prossima settimana: guardi le vendite recenti,
+          il meteo, se c’è una festa — non le vendite di settimana prossima (quelle ancora non esistono).
+        </div>
+        <div class="quiz" data-quiz="c01">
+          <strong>Quiz</strong>
+          <p>Perché as_of è importante?</p>
+          <button data-a="0">Perché la rete ha bisogno di una password</button>
+          <button data-a="1" data-ok>Perché le feature devono usare solo dati già noti a quella data</button>
+          <button data-a="2">Perché SKU e PDV devono essere uguali</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c01">Capitolo completato</button>
+      </section>
+
+      <!-- 2 -->
+      <section class="chapter" id="c02">
+        <h2>2 · Dal dato grezzo alle feature</h2>
+        <p class="lede">La rete non “legge” gli scontrini uno a uno: legge una riga di numeri e codici.</p>
+        <ol class="steps">
+          <li><strong>Grezzo:</strong> scontrini, anagrafica prodotto, negozio, meteo, calendario, giacenza.</li>
+          <li><strong>Aggregazione:</strong> es. pezzi venduti negli ultimi 14 giorni → <code>run_rate_14d</code>.</li>
+          <li><strong>Prior / naive:</strong> <code>sku_prior = run_rate_14d × 15</code> (ritmo recente proiettato).</li>
+          <li><strong>Encoder:</strong> stringhe tipo “BLU” o codice SKU diventano indici interi.</li>
+        </ol>
+        <div class="lab">
+          <h4>Lab · Calcola il prior</h4>
+          <div class="row">
+            <div>
+              <label class="ctrl">Pezzi venduti in 14 giorni
+                <input type="range" id="lab-vendite" min="0" max="40" value="12" />
+                <span id="lab-vendite-v">12</span>
+              </label>
+              <label class="ctrl">Orizzonte (giorni)
+                <input type="range" id="lab-horizon" min="7" max="90" value="15" step="1" />
+                <span id="lab-horizon-v">15</span>
+              </label>
+            </div>
+            <div>
+              <div class="tiny">run_rate_14d = pezzi / 14</div>
+              <div class="out-big" id="lab-rr">0.86</div>
+              <div class="tiny" style="margin-top:10px">sku_prior = run_rate × orizzonte</div>
+              <div class="out-big" id="lab-prior" style="color:var(--nn)">12.9</div>
+              <p class="tiny">Questo prior è l’“ancora naive”: senza rete, prevederesti così.</p>
+            </div>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="c02">
+          <strong>Quiz</strong>
+          <p>Se vendo 14 pezzi in 14 giorni e orizzonte=15, il prior è…</p>
+          <button data-a="0">14</button>
+          <button data-a="1" data-ok>15</button>
+          <button data-a="2">1</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c02">Capitolo completato</button>
+      </section>
+
+      <!-- 3 -->
+      <section class="chapter" id="c03">
+        <h2>3 · Cos’è un neurone</h2>
+        <p class="lede">Il mattone base: prende numeri in ingresso e ne produce uno in uscita.</p>
+        <p>Un neurone Dense fa due cose:</p>
+        <div class="formula">z = w₁·x₁ + w₂·x₂ + … + wₙ·xₙ + b</div>
+        <ul>
+          <li><strong>x</strong> = ingressi (attivazioni del layer prima)</li>
+          <li><strong>w</strong> = pesi (imparati durante il training)</li>
+          <li><strong>b</strong> = bias (una costante imparata)</li>
+          <li>Poi spesso si applica un’<em>attivazione</em> (prossimo capitolo)</li>
+        </ul>
+        <div class="lab">
+          <h4>Lab · Un neurone con 2 ingressi</h4>
+          <div class="row">
+            <div>
+              <label class="ctrl">x₁ <input type="range" id="n-x1" min="-2" max="2" step="0.1" value="1" /><span id="n-x1-v">1.0</span></label>
+              <label class="ctrl">w₁ <input type="range" id="n-w1" min="-2" max="2" step="0.1" value="0.8" /><span id="n-w1-v">0.8</span></label>
+              <label class="ctrl">x₂ <input type="range" id="n-x2" min="-2" max="2" step="0.1" value="-0.5" /><span id="n-x2-v">-0.5</span></label>
+              <label class="ctrl">w₂ <input type="range" id="n-w2" min="-2" max="2" step="0.1" value="1.2" /><span id="n-w2-v">1.2</span></label>
+              <label class="ctrl">bias b <input type="range" id="n-b" min="-2" max="2" step="0.1" value="0.3" /><span id="n-b-v">0.3</span></label>
+            </div>
+            <div>
+              <div class="tiny">z (prima dell’attivazione)</div>
+              <div class="out-big" id="n-z">0.00</div>
+              <div class="tiny" style="margin-top:8px">Dopo ReLU = max(0, z)</div>
+              <div class="out-big" id="n-relu" style="color:var(--nn)">0.00</div>
+              <div class="meter"><i id="n-meter"></i></div>
+              <p class="tiny" id="n-msg">—</p>
+            </div>
+          </div>
+        </div>
+        <div class="callout idea">
+          <strong>Nella Dual-head</strong>
+          Un Dense(256) significa: 256 neuroni in parallelo, ognuno con i suoi pesi,
+          che guardano lo stesso vettore in ingresso (es. 138 numeri dopo il Concatenate).
+        </div>
+        <div class="quiz" data-quiz="c03">
+          <strong>Quiz</strong>
+          <p>Se z = −1.5 e usi ReLU, l’uscita è…</p>
+          <button data-a="0">−1.5</button>
+          <button data-a="1" data-ok>0</button>
+          <button data-a="2">1.5</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c03">Capitolo completato</button>
+      </section>
+
+      <!-- 4 -->
+      <section class="chapter" id="c04">
+        <h2>4 · Attivazioni: ReLU e Softplus</h2>
+        <p class="lede">L’attivazione decide come “accendere” il neurone dopo la somma pesata.</p>
+        <h3>ReLU — max(0, z)</h3>
+        <p>Se z è negativo → spegne (0). Se positivo → lascia passare. Usata nei residual e nella head a 64.</p>
+        <h3>Softplus — log(1 + e<sup>z</sup>)</h3>
+        <p>Sempre positiva, morbida. Usata per <code>sku_scale</code>: la scala non può essere negativa
+          (non ha senso moltiplicare il prior per −3).</p>
+        <div class="lab">
+          <h4>Lab · Confronta ReLU e Softplus</h4>
+          <label class="ctrl">z <input type="range" id="act-z" min="-4" max="4" step="0.1" value="0.5" /><span id="act-z-v">0.5</span></label>
+          <div class="row">
+            <div>
+              <div class="tiny">ReLU(z)</div>
+              <div class="out-big" id="act-relu">0.5</div>
+            </div>
+            <div>
+              <div class="tiny">Softplus(z)</div>
+              <div class="out-big" id="act-sp" style="color:var(--nn)">0.97</div>
+            </div>
+          </div>
+          <p class="tiny">All’init della rete, il bias di scale è scelto così che Softplus ≈ 1 → parti dal naive.</p>
+        </div>
+        <div class="quiz" data-quiz="c04">
+          <strong>Quiz</strong>
+          <p>Perché scale usa Softplus e non ReLU?</p>
+          <button data-a="0">Perché Softplus è più veloce</button>
+          <button data-a="1" data-ok>Perché vogliamo una scala sempre &gt; 0, anche se z è un po’ negativo</button>
+          <button data-a="2">Perché ReLU non esiste in TensorFlow</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c04">Capitolo completato</button>
+      </section>
+
+      <!-- 5 -->
+      <section class="chapter" id="c05">
+        <h2>5 · Embedding: da “BLU” a un vettore</h2>
+        <p class="lede">Le categorie non sono numeri ordinati: “colore=3” non è il triplo di “colore=1”.</p>
+        <p>
+          Un <strong>embedding</strong> è una tabella: ogni ID (SKU, PDV, colore…) ha una riga di numeri
+          imparati. Esempio: <code>sku → 12 dimensioni</code>, <code>pdv → 8</code>.
+        </p>
+        <div class="callout idea">
+          <strong>Analogia</strong>
+          Come le coordinate GPS di una città: non usi il CAP come se fosse una quantità,
+          usi una posizione in uno spazio dove città simili stanno vicine.
+        </div>
+        <p>Nella Dual-head: 13 embedding categorici + 3 bande (mq, meteo) → in totale <strong>81</strong> numeri,
+          poi uniti alle 57 numeriche → <strong>138</strong>.</p>
+        <div class="quiz" data-quiz="c05">
+          <strong>Quiz</strong>
+          <p>Perché non diamo alla rete il codice SKU grezzo come un float?</p>
+          <button data-a="0" data-ok>Perché l’ordine numerico degli ID non ha significato di quantità</button>
+          <button data-a="1">Perché gli SKU sono sempre minori di 1</button>
+          <button data-a="2">Perché TensorFlow accetta solo immagini</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c05">Capitolo completato</button>
+      </section>
+
+      <!-- 6 -->
+      <section class="chapter" id="c06">
+        <h2>6 · Layer Dense e BatchNorm</h2>
+        <p class="lede">Un layer = tanti neuroni in parallelo. BatchNorm tiene i numeri “in scala umana”.</p>
+        <h3>Dense(N)</h3>
+        <p>N neuroni, ciascuno collegato a tutti gli ingressi. Dense(256) = 256 uscite.</p>
+        <h3>Batch Normalization</h3>
+        <p>Per ogni feature: sottrae la media, divide per la deviazione, poi riscala con parametri imparati.
+          Evita che alcuni numeri esplodano e altri restino microscopici.</p>
+        <h3>Dropout</h3>
+        <p>In <em>training</em> spegne a caso una % di neuroni (es. 15%). In <em>inference</em> (quando prevedi) è spento:
+          usi tutti i neuroni. Serve a non “imparare a memoria”.</p>
+        <div class="lab">
+          <h4>Lab · Dropout (idea)</h4>
+          <label class="ctrl">Probabilità di spegnimento
+            <input type="range" id="drop-p" min="0" max="50" value="15" />
+            <span id="drop-p-v">15%</span>
+          </label>
+          <button id="drop-btn" class="mark-done" style="margin:0">Simula un passo di training</button>
+          <div class="neuron-viz" id="drop-viz"></div>
+          <p class="tiny" id="drop-msg">I neuroni blu sono attivi in questo passo.</p>
+        </div>
+        <div class="quiz" data-quiz="c06">
+          <strong>Quiz</strong>
+          <p>Quando prevedi in BI (inference), il Dropout…</p>
+          <button data-a="0">Spegne il 15% dei neuroni a caso</button>
+          <button data-a="1" data-ok>È disattivato: usi tutta la rete</button>
+          <button data-a="2">Raddoppia i pesi</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c06">Capitolo completato</button>
+      </section>
+
+      <!-- 7 -->
+      <section class="chapter" id="c07">
+        <h2>7 · Residual block (il tronco)</h2>
+        <p class="lede">Tre blocchi in serie: 256 → 256 → 128. Il “tronco condiviso” della Dual-head.</p>
+        <div class="formula">
+          h = Dense→BN→ReLU→Dropout→Dense→BN<br/>
+          out = ReLU( h + skip(x) )
+        </div>
+        <p>
+          La <strong>skip connection</strong> somma l’ingresso originale (eventualmente proiettato se cambia dimensione).
+          Così la rete può imparare una <em>correzione</em> invece di ricostruire tutto da zero.
+        </p>
+        <div class="callout ok">
+          <strong>Shape del vostro modello</strong>
+          Concat 138 → Residual 256 → Residual 256 → Residual 128 → vettore <code>x</code> condiviso.
+        </div>
+        <div class="quiz" data-quiz="c07">
+          <strong>Quiz</strong>
+          <p>A cosa serve la skip connection?</p>
+          <button data-a="0">A cancellare i pesi</button>
+          <button data-a="1" data-ok>A far passare il segnale originale e far imparare soprattutto le correzioni</button>
+          <button data-a="2">A convertire SKU in PDF</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c07">Capitolo completato</button>
+      </section>
+
+      <!-- 8 -->
+      <section class="chapter" id="c08">
+        <h2>8 · Dual-head: prior × scale + delta</h2>
+        <p class="lede">Il cuore operativo: due teste, ma in produzione usi soprattutto y_sku.</p>
+        <h3>Testa SKU (usata)</h3>
+        <ol>
+          <li>Dense(64) + ReLU + Dropout sul vettore x</li>
+          <li><code>sku_scale</code> = Softplus(…) → moltiplicatore del prior</li>
+          <li><code>sku_delta</code> = lineare → pezzi da aggiungere/togliere</li>
+          <li><code>y_sku = ReLU( prior × scale + delta )</code></li>
+        </ol>
+        <h3>Testa categoria (solo training)</h3>
+        <p>Prevede un totale di reparto con <code>stop_gradient</code>: aiuta a regolarizzare senza spostare i pesi del tronco.</p>
+        <div class="lab">
+          <h4>Lab · La formula del vostro esempio</h4>
+          <div class="row">
+            <div>
+              <label class="ctrl">prior <input type="range" id="f-prior" min="1" max="40" step="0.1" value="12.86" /><span id="f-prior-v">12.86</span></label>
+              <label class="ctrl">scale <input type="range" id="f-scale" min="0.05" max="2" step="0.01" value="0.181" /><span id="f-scale-v">0.181</span></label>
+              <label class="ctrl">delta <input type="range" id="f-delta" min="-5" max="5" step="0.01" value="0.742" /><span id="f-delta-v">0.742</span></label>
+            </div>
+            <div>
+              <div class="tiny">prior × scale</div>
+              <div id="f-mid" class="out-big" style="font-size:1.3rem;color:var(--nn)">2.33</div>
+              <div class="tiny" style="margin-top:8px">+ delta → ReLU</div>
+              <div id="f-out" class="out-big">3.06</div>
+              <p class="tiny">Valori di default = esempio reale del video/PDF percorso.</p>
+            </div>
+          </div>
+        </div>
+        <div class="callout warn">
+          <strong>Messaggio chiave</strong>
+          La rete non inventa i pezzi dal nulla: parte dal ritmo recente (prior) e impara solo quanto alzarlo/abbassarlo.
+        </div>
+        <div class="quiz" data-quiz="c08">
+          <strong>Quiz</strong>
+          <p>All’inizializzazione (scale≈1, delta≈0), y_sku vale circa…</p>
+          <button data-a="0">sempre 0</button>
+          <button data-a="1" data-ok>il prior (previsione naive)</button>
+          <button data-a="2">1000 pezzi</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c08">Capitolo completato</button>
+      </section>
+
+      <!-- 9 -->
+      <section class="chapter" id="c09">
+        <h2>9 · Training vs inference</h2>
+        <p class="lede">Due momenti diversi: imparare dai dati passati, poi prevedere.</p>
+        <h3>Training</h3>
+        <ul>
+          <li>Si confronta y_sku predetto con le vendite vere nei 15 giorni dopo as_of.</li>
+          <li>Loss: Huber (robusta agli outlier) — peso 1.0 su SKU, 0.15 su categoria.</li>
+          <li>Ottimizzatore Adam + CosineDecay sul learning rate.</li>
+          <li>Early stopping sulla MAE di validazione.</li>
+        </ul>
+        <h3>Inference (BI / produzione)</h3>
+        <ul>
+          <li>Niente target futuro: solo feature fino ad as_of.</li>
+          <li>Si legge lo strato <code>y_sku</code>.</li>
+          <li>Spesso si mescola ancora con LightGBM tramite routing per fascia di volume.</li>
+        </ul>
+        <div class="quiz" data-quiz="c09">
+          <strong>Quiz</strong>
+          <p>In inference, la rete vede le vendite dei 15 giorni futuri?</p>
+          <button data-a="0">Sì, altrimenti non può prevedere</button>
+          <button data-a="1" data-ok>No: vede solo lo storico ≤ as_of</button>
+          <button data-a="2">Solo se il PDV è italiano</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c09">Capitolo completato</button>
+      </section>
+
+      <!-- 10 -->
+      <section class="chapter" id="c10">
+        <h2>10 · LightGBM in 5 minuti</h2>
+        <p class="lede">Non è una rete a layer: è una somma di alberi di decisione.</p>
+        <ul>
+          <li>Ogni albero fa domande tipo “run_rate ≤ 0.8?” e finisce in una foglia con un contributo numerico.</li>
+          <li>Centinaia di alberi si sommano (boosting).</li>
+          <li>Nel vostro stack: Tweedie (globale) + specialista high-volume + mix; poi routing con la Dual-head.</li>
+        </ul>
+        <div class="callout idea">
+          <strong>Quando serve sapere questo</strong>
+          Sui 30/60/90 giorni i motori nativi sono soprattutto LGBM. Sui 15 giorni lavora l’ensemble completo.
+        </div>
+        <div class="quiz" data-quiz="c10">
+          <strong>Quiz</strong>
+          <p>LightGBM “attiva neuroni”?</p>
+          <button data-a="0">Sì, come Dense(256)</button>
+          <button data-a="1" data-ok>No: sceglie percorsi in alberi e somma contributi</button>
+          <button data-a="2">Solo con Softplus</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c10">Capitolo completato</button>
+      </section>
+
+      <!-- 11 -->
+      <section class="chapter" id="c11">
+        <h2>11 · Esempio guidato (ripasso totale)</h2>
+        <p class="lede">Lo stesso caso del video: 12 pezzi in 14 giorni, temp 21.5°C, prior 12.86.</p>
+        <ol class="steps">
+          <li>Grezzo aggregato → RR14 = 0.857 · prior15 = 12.86</li>
+          <li>ID → embedding · numeriche → z-score + BN</li>
+          <li>Concat 138 → residual 256 → 256 → 128</li>
+          <li>Head: scale ≈ 0.181 · delta ≈ +0.74</li>
+          <li>y_sku = ReLU(12.86 × 0.181 + 0.74) ≈ <strong>3.06 pezzi / 15 giorni</strong></li>
+        </ol>
+        <p class="tiny">Lettura: la rete ha rivisto al ribasso il naive (12.86 → 3.06) su quel contesto — scala bassa + piccolo delta.</p>
+        <div class="resources">
+          <a href="../CDM_video_flusso_rete_neurale.html">Video flusso rete<span>Animazione 44s</span></a>
+          <a href="../CDM_percorso_esempio_dato.html">Percorso esempio<span>Albero LGBM + neuroni</span></a>
+          <a href="../CDM_flusso_dato_neuroni.html">Shape e layer<span>138→256→128→1</span></a>
+          <a href="../CDM_architettura_layer_modelli.html">Architettura LGBM+TF<span>Due motori a confronto</span></a>
+        </div>
+        <div class="quiz" data-quiz="c11">
+          <strong>Quiz finale</strong>
+          <p>Quale pezzo “salta” il tronco e arriva solo alla Multiply?</p>
+          <button data-a="0">BatchNorm</button>
+          <button data-a="1" data-ok>sku_prior</button>
+          <button data-a="2">y_cat</button>
+          <div class="feedback"></div>
+        </div>
+        <button class="mark-done" data-mark="c11">Capitolo completato</button>
+      </section>
+
+      <!-- 12 -->
+      <section class="chapter" id="c12">
+        <h2>12 · Glossario & risorse</h2>
+        <p class="lede">Cerca un termine o aprilo. Tutto riferito a questa rete.</p>
+        <input class="search" id="gloss-search" type="search" placeholder="Cerca: ReLU, prior, embedding…" />
+        <div class="glossary" id="glossary">
+          <details data-g="as_of"><summary>as_of</summary><p>Data di riferimento: le feature usano solo dati ≤ as_of.</p></details>
+          <details data-g="attivazione"><summary>Attivazione</summary><p>Funzione dopo la somma pesata (ReLU, Softplus…). Decide se/come il neurone si accende.</p></details>
+          <details data-g="batchnorm"><summary>BatchNorm</summary><p>Normalizza le attivazioni (media/varianza) e le riscala: stabilizza il training.</p></details>
+          <details data-g="bias"><summary>Bias</summary><p>Termine costante b nella formula del neurone z = w·x + b.</p></details>
+          <details data-g="concatenate"><summary>Concatenate</summary><p>Unisce vettori (embedding + numeriche) in un unico array (da voi: 138).</p></details>
+          <details data-g="delta"><summary>sku_delta</summary><p>Correzione in pezzi (±) rispetto a prior×scale.</p></details>
+          <details data-g="dense"><summary>Dense / Fully connected</summary><p>Layer in cui ogni neurone vede tutti gli ingressi.</p></details>
+          <details data-g="dropout"><summary>Dropout</summary><p>In training spegne a caso neuroni; in inference è off.</p></details>
+          <details data-g="dual-head"><summary>Dual-head</summary><p>Due uscite: y_sku (operativa) e y_cat (regolarizzatore in training).</p></details>
+          <details data-g="embedding"><summary>Embedding</summary><p>Tabella ID → vettore continuo imparato (sku, pdv, colore…).</p></details>
+          <details data-g="feature"><summary>Feature</summary><p>Numero o codice derivato dai dati grezzi, in ingresso al modello.</p></details>
+          <details data-g="huber"><summary>Huber loss</summary><p>Funzione di errore robusta: quadratico sui piccoli errori, lineare sui grandi.</p></details>
+          <details data-g="inference"><summary>Inference</summary><p>Usso del modello già addestrato per prevedere (es. in BI).</p></details>
+          <details data-g="layer"><summary>Layer</summary><p>Strato di trasformazione (Dense, Embedding, BN…).</p></details>
+          <details data-g="lightgbm"><summary>LightGBM</summary><p>Modello a boosting di alberi, non a neuroni.</p></details>
+          <details data-g="loss"><summary>Loss</summary><p>Misura dell’errore in training: si cerca di diminuirla aggiornando i pesi.</p></details>
+          <details data-g="neurone"><summary>Neurone</summary><p>Unità che calcola somma pesata (+ bias) e spesso un’attivazione.</p></details>
+          <details data-g="orizzonte"><summary>Orizzonte</summary><p>Quanti giorni nel futuro prevede il modello (15/30/60/90).</p></details>
+          <details data-g="pdv"><summary>PDV</summary><p>Punto vendita / negozio.</p></details>
+          <details data-g="pesi"><summary>Pesi (weights)</summary><p>Parametri w imparati: quanto conta ogni ingresso.</p></details>
+          <details data-g="prior"><summary>sku_prior / naive</summary><p>run_rate_14d × orizzonte: punto di partenza della previsione.</p></details>
+          <details data-g="relu"><summary>ReLU</summary><p>max(0, z): spegne i negativi.</p></details>
+          <details data-g="residual"><summary>Residual block</summary><p>Blocco Dense con skip: out = f(x) + x (proiettato se serve).</p></details>
+          <details data-g="routing"><summary>Routing</summary><p>Regola post-modello che mescola TF / LGBM / naive per fascia di volume.</p></details>
+          <details data-g="scale"><summary>sku_scale</summary><p>Moltiplicatore Softplus del prior.</p></details>
+          <details data-g="sku"><summary>SKU</summary><p>Codice prodotto (stock keeping unit).</p></details>
+          <details data-g="softplus"><summary>Softplus</summary><p>log(1+e^z): attivazione sempre positiva.</p></details>
+          <details data-g="stop_gradient"><summary>stop_gradient</summary><p>Blocca il flusso dei gradienti: y_cat non aggiorna il tronco.</p></details>
+          <details data-g="training"><summary>Training</summary><p>Fase in cui i pesi si aggiornano confrontando predizione e vendite vere.</p></details>
+          <details data-g="tweedie"><summary>Tweedie</summary><p>Obiettivo LGBM adatto a vendite con molti zeri e coda lunga.</p></details>
+          <details data-g="wmape"><summary>wMAPE</summary><p>Errore percentuale pesato sui volumi: metrica di qualità forecast.</p></details>
+          <details data-g="y_sku"><summary>y_sku</summary><p>Uscita operativa: pezzi previsti per SKU×PDV sull’orizzonte.</p></details>
+        </div>
+        <h3>Materiali correlati</h3>
+        <div class="resources">
+          <a href="../CDM_video_flusso_rete_neurale.mp4">Scarica video MP4<span>Flusso animato</span></a>
+          <a href="../CDM_percorso_esempio_dato.pdf">PDF percorso esempio<span>Albero + neuroni</span></a>
+          <a href="../CDM_come_lavora_il_modello.pdf">PDF overview modello<span>Flusso ensemble</span></a>
+          <a href="../../testing/model/dual_head_tf.py">Codice dual_head_tf.py<span>Sorgente Keras</span></a>
+        </div>
+        <button class="mark-done" data-mark="c12">Ho consultato il glossario</button>
+      </section>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

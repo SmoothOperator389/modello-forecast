@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Forecast Reale — BI</title>
+<style>
+:root {
+  --bg:#0b1220; --panel:#121a2b; --line:#243047; --text:#e8eef8; --muted:#93a0b5;
+  --accent:#5b9fd4; --good:#3ecf8e; --warn:#e6b84d; --bad:#e86a6a; --chip:#1a2438;
+}
+* { box-sizing:border-box; }
+body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.45; }
+header { padding:28px 28px 12px; border-bottom:1px solid var(--line); }
+header h1 { margin:0 0 6px; font-size:1.55rem; font-weight:650; letter-spacing:-0.02em; }
+header p { margin:0; color:var(--muted); font-size:0.92rem; }
+nav { display:flex; gap:8px; flex-wrap:wrap; padding:12px 28px; border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(11,18,32,.92); backdrop-filter:blur(8px); z-index:5; }
+nav button { background:var(--chip); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; cursor:pointer; font-size:0.85rem; }
+nav button.active, nav button:hover { border-color:var(--accent); color:#fff; }
+main { padding:20px 28px 48px; max-width:1200px; }
+.grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:14px 0 22px; }
+@media (max-width:900px){ .grid{grid-template-columns:repeat(2,1fr);} }
+.stat { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+.stat .lbl { color:var(--muted); font-size:0.78rem; text-transform:uppercase; letter-spacing:.04em; }
+.stat .val { font-size:1.55rem; font-weight:650; margin-top:4px; }
+.stat .sub { color:var(--muted); font-size:0.8rem; margin-top:2px; }
+.section { display:none; }
+.section.on { display:block; }
+h2 { font-size:1.15rem; margin:8px 0 12px; font-weight:600; }
+h3 { font-size:0.95rem; margin:18px 0 8px; color:var(--muted); font-weight:600; }
+.panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+table { width:100%; border-collapse:collapse; font-size:0.86rem; }
+th, td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:right; }
+th:first-child, td:first-child { text-align:left; }
+th { color:var(--muted); font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:.03em; }
+tr:hover td { background:rgba(91,159,212,.06); }
+.bar-wrap { display:flex; flex-direction:column; gap:8px; }
+.bar-row { display:grid; grid-template-columns:110px 1fr 52px; gap:10px; align-items:center; font-size:0.84rem; }
+.bar-track { height:10px; background:#1a2438; border-radius:6px; overflow:hidden; }
+.bar-fill { height:100%; background:var(--accent); border-radius:6px; }
+.note { color:var(--muted); font-size:0.86rem; margin:6px 0; }
+.pill { display:inline-block; padding:2px 8px; border-radius:999px; background:var(--chip); border:1px solid var(--line); font-size:0.75rem; color:var(--muted); }
+.good { color:var(--good); } .warn { color:var(--warn); }
+.chart { width:100%; height:260px; }
+svg text { fill:var(--muted); font-size:11px; font-family:inherit; }
+.legend { display:flex; gap:14px; flex-wrap:wrap; margin:8px 0 4px; font-size:0.8rem; color:var(--muted); }
+.legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Forecast riassortimento — BI dati reali</h1>
+  <p>Modello DualHead TensorFlow · Valido fact_daily · generato <span id="gen"></span></p>
+</header>
+<nav id="nav">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="models">Modelli</button>
+  <button data-tab="bands">Per fascia</button>
+  <button data-tab="data">Dati & DNA</button>
+  <button data-tab="train">Training</button>
+  <button data-tab="notes">Note</button>
+</nav>
+<main>
+<section id="overview" class="section on">
+  <h2>Train full — rete intera</h2>
+  <div class="grid" id="full-stats"></div>
+  <div class="panel">
+    <h3>Confronto MAE (pezzi / 15gg)</h3>
+    <div class="legend" id="cmp-legend"></div>
+    <div id="cmp-bars" class="bar-wrap"></div>
+    <p class="note">Pilota = 40 PDV top. Full = 165 PDV. Route ops (NEW) = LGBM bassi + mix specialista mid + mix high/TF con floor naive (−9% ops MAE vs legacy).</p>
+  </div>
+</section>
+
+<section id="models" class="section">
+  <h2>Dettaglio modelli</h2>
+  <div class="panel"><table id="tbl-global"><thead></thead><tbody></tbody></table></div>
+  <div class="panel">
+    <h3>Routing (pilota)</h3>
+    <pre id="routing-rule" style="white-space:pre-wrap;color:var(--muted);font-size:0.85rem;margin:0"></pre>
+  </div>
+  <div class="panel">
+    <h3>Feature importance LightGBM (top)</h3>
+    <div id="imp-bars" class="bar-wrap"></div>
+  </div>
+</section>
+
+<section id="bands" class="section">
+  <h2>MAE per fascia di domanda</h2>
+  <p class="note">Routing v2: specialista high-volume + soglie calibrate. Coda alta ora ≤ naive.</p>
+  <div class="panel">
+    <div class="legend">
+      <span><i style="background:#93a0b5"></i>Naive</span>
+      <span><i style="background:#5b9fd4"></i>TF</span>
+      <span><i style="background:#3ecf8e"></i>LightGBM</span>
+      <span><i style="background:#e6b84d"></i>Route legacy</span>
+      <span><i style="background:#c084fc"></i>Route ops NEW</span>
+    </div>
+    <svg id="band-svg" class="chart" viewBox="0 0 720 260"></svg>
+  </div>
+  <div class="panel"><table id="tbl-bands"><thead></thead><tbody></tbody></table></div>
+</section>
+
+<section id="data" class="section">
+  <h2>Copertura dati</h2>
+  <div class="grid" id="cov-stats"></div>
+  <div class="panel">
+    <p class="note">Vendite/giacenza da <code>fact_daily</code> (~20.4M righe). DNA da DNA_SKU. Festività da libreria <code>holidays</code>.</p>
+  </div>
+</section>
+
+<section id="train" class="section">
+  <h2>Curve training (full)</h2>
+  <div class="panel">
+    <svg id="hist-svg" class="chart" viewBox="0 0 720 260"></svg>
+    <p class="note">Early stopping su val MAE SKU. Source: history.csv</p>
+  </div>
+</section>
+
+<section id="notes" class="section">
+  <h2>Note operative</h2>
+  <div class="panel" id="notes-list"></div>
+  <div class="panel">
+    <h3>File</h3>
+    <p class="note"><code>production/artifacts/real/dual_head.keras</code> · metriche JSON · questo HTML in <code>reports/forecast_real_bi.html</code></p>
+    <p class="note">PDF: <code>reports/Report_Modello_Forecast_Reale.pdf</code></p>
+  </div>
+</section>
+</main>
+<script>
+const DATA = {"generated_at": "2026-09-18 14:55", "full": {"pilot": false, "n_train": 2178834, "n_test": 343012, "n_pdv": 165, "n_sku": 19565, "mae_final": 2.6585, "mae_raw": 2.6902, "mae_cdm": 3.2866, "mae_naive": 2.9801, "mape_final": 89.4, "r2_final": 0.8852, "improvement_vs_cdm_pct": 19.11, "as_of_start": "2025-06-01", "as_of_end": "2026-07-26", "cut_test": "2026-06-28"}, "pilot": {"pilot": true, "n_train": 692089, "n_test": 142491, "n_pdv": 40, "n_sku": 11793, "mae_final": 3.5103, "mae_raw": 3.5231, "mae_cdm": 4.312, "mae_naive": 3.7254, "mape_final": 73.8, "r2_final": 0.8714, "improvement_vs_cdm_pct": 18.59, "as_of_start": "2025-10-01", "as_of_end": "2026-07-22", "cut_test": "2026-06-24"}, "challenger": {"cut": "2026-06-24", "n_train": 692089, "n_test": 142491, "global": {"naive": {"mae": 3.7254, "mape": 96.41, "wmape": 51.33, "r2": 0.9316, "n": 142491, "mean_y": 7.2576}, "cdm": {"mae": 4.312, "mape": 103.37, "wmape": 59.41, "r2": 0.8444, "n": 142491, "mean_y": 7.2576}, "tf_raw": {"mae": 3.5231, "mape": 73.97, "wmape": 48.54, "r2": 0.8713, "n": 142491, "mean_y": 7.2576}, "tf_blend": {"mae": 3.5103, "mape": 73.8, "wmape": 48.37, "r2": 0.8714, "n": 142491, "mean_y": 7.2576}, "lgbm_raw": {"mae": 3.5708, "mape": 64.89, "wmape": 49.2, "r2": 0.8597, "n": 142491, "mean_y": 7.2576}, "lgbm_blend": {"mae": 3.5262, "mape": 66.03, "wmape": 48.59, "r2": 0.8605, "n": 142491, "mean_y": 7.2576}}, "winner_blend": "tf_blend", "lgbm_best_iteration": 710, "top_features": [{"feature": "sku_id", "importance": 33838}, {"feature": "modello", "importance": 13981}, {"feature": "pdv_id", "importance": 6274}, {"feature": "tessuto", "importance": 1747}, {"feature": "colore", "importance": 1099}, {"feature": "pdv_age_days", "importance": 578}, {"feature": "trend_14v28", "importance": 575}, {"feature": "temp_media", "importance": 557}, {"feature": "cos_anno", "importance": 537}, {"feature": "giacenza", "importance": 532}, {"feature": "run_rate_7d", "importance": 520}, {"feature": "run_rate_28d", "importance": 500}, {"feature": "giorni_da_lancio", "importance": 453}, {"feature": "giacenza_su_run_rate", "importance": 445}, {"feature": "mese", "importance": 407}]}, "ensemble": {"cut": "2026-06-24", "routing_rule": {"point_forecast": "route_ops_tweedie_rec", "lgbm_slot": "tweedie + soft_reconcile(0.25)", "params": {"score": 3.6353, "mae": 2.8642, "low_thr": 2.0, "high_thr": 18.0, "mid_mode": "mix_high_lgbm", "high_mode": "mix_high_tf", "mid_spec_weight": 0.6, "high_tf_weight": 0.35, "high_spec_weight": 0.7, "floor_ratio": 0.9, "objective": "ops", "trials": 10400}, "p80_scale": 1.2742}, "global": {"naive": {"mae": 3.7254, "mape": 96.41, "wmape": 51.33, "r2": 0.9316, "n": 142491, "mean_y": 7.2576}, "tf_blend": {"mae": 3.5103, "mape": 73.8, "wmape": 48.37, "r2": 0.8714, "n": 142491, "mean_y": 7.2576}, "route_ops_l1": {"mae": 3.3937, "mape": 94.61, "wmape": 46.76, "r2": 0.9275, "n": 142491, "mean_y": 7.2576}, "route_ops_tweedie_rec": {"mae": 3.3941, "mape": 102.38, "wmape": 46.77, "r2": 0.9277, "n": 142491, "mean_y": 7.2576}, "lgbm_tweedie": {"mae": 3.3254, "mape": 72.88, "wmape": 45.82, "r2": 0.8688, "n": 142491, "mean_y": 7.2576}}, "ops_mae": {"route_mix_legacy": 4.5268, "route_ops_l1": 4.1071, "route_ops_tweedie_rec": 3.9499}, "quantile": {"scale": 1.2742, "coverage_global_pct": 80.0, "coverage_ops_pct": 68.45}, "winner": "route_ops_tweedie_rec", "improvement_ops_vs_legacy_pct": 12.74, "improvement_ops_vs_route_l1_pct": 3.83}, "coverage": {"n_sku": 23161, "n_pdv": 165, "modello_pct": 100.0, "colore_pct": 100.0, "tessuto_pct": 89.1, "campagna_pct": 31.6, "classe_pct": 31.6, "city_pct": 74.5, "countries_cal": 21, "festivi_rows": 901}, "band_chart": [{"band": "y(0,2]", "n": 48042, "mean_y": 1.4573, "naive": 1.9312, "tf_blend": 1.3101, "lgbm_blend": 1.0766, "route_mix": 1.4036, "route_ops": 2.0895, "route_global": 1.3918}, {"band": "y(2,5]", "n": 42618, "mean_y": 3.839, "naive": 2.4781, "tf_blend": 1.5681, "lgbm_blend": 1.7621, "route_mix": 1.7044, "route_ops": 1.7952, "route_global": 1.9745}, {"band": "y(5,15]", "n": 37199, "mean_y": 8.8594, "naive": 4.5567, "tf_blend": 4.4737, "lgbm_blend": 4.6941, "route_mix": 4.6461, "route_ops": 3.8021, "route_global": 4.3044}, {"band": "y>15", "n": 9863, "mean_y": 47.7501, "naive": 15.1063, "tf_blend": 19.4495, "lgbm_blend": 19.4451, "route_mix": 16.2723, "route_ops": 15.2467, "route_global": 15.3832}, {"band": "ops_y>=3", "n": 89680, "mean_y": 10.7508, "naive": 4.7291, "tf_blend": 4.7399, "lgbm_blend": 4.9231, "route_mix": 4.5268, "route_ops": 4.1071, "route_global": 4.4156}], "global_compare": [{"model": "Route legacy", "mae": 3.4038, "scope": "pilota+"}, {"model": "Route ops L1", "mae": 3.3937, "scope": "pilota+"}, {"model": "Route Tweedie+rec NEW", "mae": 3.3941, "scope": "pilota+"}, {"model": "LGBM Tweedie", "mae": 3.3254, "scope": "pilota"}, {"model": "TF full", "mae": 2.6585, "scope": "full"}, {"model": "CDM", "mae": 4.312, "scope": "pilota"}, {"model": "Naive", "mae": 3.7254, "scope": "pilota"}], "importance": [{"feature": "sku_id", "importance": 33838}, {"feature": "modello", "importance": 13981}, {"feature": "pdv_id", "importance": 6274}, {"feature": "tessuto", "importance": 1747}, {"feature": "colore", "importance": 1099}, {"feature": "pdv_age_days", "importance": 578}, {"feature": "trend_14v28", "importance": 575}, {"feature": "temp_media", "importance": 557}, {"feature": "cos_anno", "importance": 537}, {"feature": "giacenza", "importance": 532}, {"feature": "run_rate_7d", "importance": 520}, {"feature": "run_rate_28d", "importance": 500}], "history": [{"epoch": 1, "loss": 11.429113388061523, "val_loss": 5.860642433166504, "val_y_cat_loss": 0.8149272203445435, "val_y_cat_mae": 1.2240978479385376, "val_y_sku_loss": 5.801677703857422, "val_y_sku_mae": 2.3023672103881836, "y_cat_loss": 2.259098529815674, "y_cat_mae": 1.4396629333496094, "y_sku_loss": 11.088960647583008, "y_sku_mae": 2.180702209472656}, {"epoch": 2, "loss": 10.369340896606444, "val_loss": 5.758886814117432, "val_y_cat_loss": 0.6874001622200012, "val_y_cat_mae": 1.0862280130386353, "val_y_sku_loss": 5.710274696350098, "val_y_sku_mae": 2.323885917663574, "y_cat_loss": 2.0019328594207764, "y_cat_mae": 1.3168635368347168, "y_sku_loss": 10.067771911621094, "y_sku_mae": 2.0568015575408936}, {"epoch": 3, "loss": 9.99081325531006, "val_loss": 5.798198223114014, "val_y_cat_loss": 0.7454513311386108, "val_y_cat_mae": 1.1472941637039185, "val_y_sku_loss": 5.736664295196533, "val_y_sku_mae": 2.352360725402832, "y_cat_loss": 1.991472840309143, "y_cat_mae": 1.3138097524642944, "y_sku_loss": 9.69077205657959, "y_sku_mae": 2.0128750801086426}, {"epoch": 4, "loss": 9.736260414123535, "val_loss": 5.871511459350586, "val_y_cat_loss": 0.7330871820449829, "val_y_cat_mae": 1.1338857412338257, "val_y_sku_loss": 5.813930988311768, "val_y_sku_mae": 2.3692996501922607, "y_cat_loss": 2.0072288513183594, "y_cat_mae": 1.3222975730895996, "y_sku_loss": 9.43418312072754, "y_sku_mae": 1.983119249343872}, {"epoch": 5, "loss": 9.333946228027344, "val_loss": 6.279606819152832, "val_y_cat_loss": 0.7263005971908569, "val_y_cat_mae": 1.1270219087600708, "val_y_sku_loss": 6.243587493896484, "val_y_sku_mae": 2.460237979888916, "y_cat_loss": 2.010596752166748, "y_cat_mae": 1.3227704763412476, "y_sku_loss": 9.031767845153809, "y_sku_mae": 1.944277286529541}, {"epoch": 6, "loss": 9.133169174194336, "val_loss": 6.637889862060547, "val_y_cat_loss": 0.8999189138412476, "val_y_cat_mae": 1.3201508522033691, "val_y_sku_loss": 6.582269191741943, "val_y_sku_mae": 2.5325775146484375, "y_cat_loss": 2.0147881507873535, "y_cat_mae": 1.3258248567581177, "y_sku_loss": 8.83035659790039, "y_sku_mae": 1.92034649848938}, {"epoch": 7, "loss": 8.940954208374023, "val_loss": 6.476452827453613, "val_y_cat_loss": 0.8261653780937195, "val_y_cat_mae": 1.237315654754639, "val_y_sku_loss": 6.415647983551025, "val_y_sku_mae": 2.521008014678955, "y_cat_loss": 1.9895377159118652, "y_cat_mae": 1.31387460231781, "y_sku_loss": 8.64195442199707, "y_sku_mae": 1.8965593576431272}, {"epoch": 8, "loss": 8.766603469848633, "val_loss": 6.218978404998779, "val_y_cat_loss": 0.7470874786376953, "val_y_cat_mae": 1.1510201692581177, "val_y_sku_loss": 6.180325508117676, "val_y_sku_mae": 2.467198610305786, "y_cat_loss": 1.979959487915039, "y_cat_mae": 1.3078418970108032, "y_sku_loss": 8.468655586242676, "y_sku_mae": 1.8812921047210691}, {"epoch": 9, "loss": 8.721572875976562, "val_loss": 6.62845516204834, "val_y_cat_loss": 0.7599408626556396, "val_y_cat_mae": 1.1647330522537231, "val_y_sku_loss": 6.621006965637207, "val_y_sku_mae": 2.583357095718384, "y_cat_loss": 1.99753737449646, "y_cat_mae": 1.3155597448349, "y_sku_loss": 8.421091079711914, "y_sku_mae": 1.871455192565918}, {"epoch": 10, "loss": 8.499159812927246, "val_loss": 6.437924861907959, "val_y_cat_loss": 0.7919261455535889, "val_y_cat_mae": 1.1999242305755615, "val_y_sku_loss": 6.414693355560303, "val_y_sku_mae": 2.5468616485595703, "y_cat_loss": 2.0020511150360107, "y_cat_mae": 1.318981051445007, "y_sku_loss": 8.197768211364746, "y_sku_mae": 1.849685311317444}, {"epoch": 11, "loss": 8.259464263916016, "val_loss": 6.399416446685791, "val_y_cat_loss": 0.7532459497451782, "val_y_cat_mae": 1.1562178134918213, "val_y_sku_loss": 6.3767476081848145, "val_y_sku_mae": 2.511644124984741, "y_cat_loss": 2.002708911895752, "y_cat_mae": 1.3192508220672607, "y_sku_loss": 7.958096504211426, "y_sku_mae": 1.821662187576294}, {"epoch": 12, "loss": 8.292471885681152, "val_loss": 6.5406084060668945, "val_y_cat_loss": 0.767829179763794, "val_y_cat_mae": 1.1743394136428833, "val_y_sku_loss": 6.502416133880615, "val_y_sku_mae": 2.5305678844451904, "y_cat_loss": 2.007601737976074, "y_cat_mae": 1.321371078491211, "y_sku_loss": 7.990250110626221, "y_sku_mae": 1.824307322502136}, {"epoch": 13, "loss": 8.048710823059082, "val_loss": 6.0495076179504395, "val_y_cat_loss": 0.7366129159927368, "val_y_cat_mae": 1.1399738788604736, "val_y_sku_loss": 6.034364700317383, "val_y_sku_mae": 2.4056615829467773, "y_cat_loss": 2.014401912689209, "y_cat_mae": 1.3244143724441528, "y_sku_loss": 7.745585918426514, "y_sku_mae": 1.7984780073165894}], "notes": ["Deploy point: route_ops_tweedie_rec — ops MAE 3.950 (−12.74% vs legacy route_mix).", "LGBM slot = Tweedie + soft reconcile pdv×modello (α=0.25).", "Riassortimento: P50 centrale; P80 calibrato (×1.274) coverage≈80.0% (target 80%).", "Quantili: production/artifacts/real/lgbm_quantile_bundle.joblib", "TF DualHead non ritrenato: miglioramenti post-modello."]};
+document.getElementById('gen').textContent = DATA.generated_at;
+
+// tabs
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('on'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('on');
+  };
+});
+
+function stat(lbl, val, sub) {
+  return `<div class="stat"><div class="lbl">${lbl}</div><div class="val">${val}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+}
+
+const f = DATA.full;
+document.getElementById('full-stats').innerHTML = [
+  stat('MAE finale', f.mae_final.toFixed(2), 'pezzi / 15gg'),
+  stat('vs CDM', (f.improvement_vs_cdm_pct>0?'−':'') + Math.abs(f.improvement_vs_cdm_pct).toFixed(1) + '%', `CDM ${f.mae_cdm}`),
+  stat('vs Naive', ((f.mae_naive-f.mae_final)/f.mae_naive*100).toFixed(1)+'%', `naive ${f.mae_naive}`),
+  stat('R²', f.r2_final.toFixed(3), `${f.n_pdv} PDV · ${f.n_sku.toLocaleString('it')} SKU`),
+  stat('Train rows', f.n_train.toLocaleString('it'), `test ${f.n_test.toLocaleString('it')}`),
+  stat('Holdout', f.cut_test, `${f.as_of_start} → ${f.as_of_end}`),
+  stat('MAPE', f.mape_final + '%', 'gonfiato da y piccoli'),
+  stat('Pilota MAE', (DATA.pilot.mae_final||'—'), '40 PDV (riferimento)'),
+].join('');
+
+// compare bars — include full TF and pilot models
+const cmp = [
+  {label:'CDM (pilota)', mae: DATA.challenger.global?.cdm?.mae},
+  {label:'Naive (pilota)', mae: DATA.challenger.global?.naive?.mae},
+  {label:'LGBM (pilota)', mae: DATA.challenger.global?.lgbm_blend?.mae},
+  {label:'TF (pilota)', mae: DATA.challenger.global?.tf_blend?.mae},
+  {label:'Route legacy', mae: DATA.ensemble.global?.route_mix_legacy?.mae},
+  {label:'Route ops NEW', mae: DATA.ensemble.global?.route_cal_ops?.mae},
+  {label:'Route global NEW', mae: DATA.ensemble.global?.route_cal_global?.mae},
+  {label:'Naive (full)', mae: f.mae_naive},
+  {label:'CDM (full)', mae: f.mae_cdm},
+  {label:'TF (full)', mae: f.mae_final},
+].filter(x => x.mae != null);
+const maxMae = Math.max(...cmp.map(x => x.mae));
+document.getElementById('cmp-bars').innerHTML = cmp.map(x => {
+  const w = (100 * x.mae / maxMae).toFixed(1);
+  const hi = x.label.includes('TF (full)') || x.label.includes('NEW');
+  return `<div class="bar-row"><span>${x.label}</span><div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${hi?'var(--good)':'var(--accent)'}"></div></div><span>${x.mae.toFixed(2)}</span></div>`;
+}).join('');
+
+// global table
+const g = DATA.challenger.global || {};
+const rowsG = Object.entries(g).map(([k,v]) => `<tr><td>${k}</td><td>${v.mae}</td><td>${v.wmape??'—'}</td><td>${v.mape??'—'}</td><td>${v.r2??'—'}</td><td>pilota</td></tr>`);
+rowsG.push(`<tr><td>tf_full</td><td>${f.mae_final}</td><td>—</td><td>${f.mape_final}</td><td>${f.r2_final}</td><td>full</td></tr>`);
+if (DATA.ensemble.global) {
+  for (const [k,v] of Object.entries(DATA.ensemble.global)) {
+    if (['naive','tf_blend','lgbm_blend'].includes(k)) continue;
+    rowsG.push(`<tr><td>${k}</td><td>${v.mae}</td><td>${v.wmape??'—'}</td><td>${v.mape??'—'}</td><td>${v.r2??'—'}</td><td>routing</td></tr>`);
+  }
+}
+document.querySelector('#tbl-global thead').innerHTML = '<tr><th>Modello</th><th>MAE</th><th>wMAPE</th><th>MAPE</th><th>R²</th><th>Scope</th></tr>';
+document.querySelector('#tbl-global tbody').innerHTML = rowsG.join('');
+document.getElementById('routing-rule').textContent = JSON.stringify(DATA.ensemble.routing_rule || {}, null, 2);
+
+// importance
+const imps = DATA.importance || [];
+const maxI = Math.max(...imps.map(x => x.importance), 1);
+document.getElementById('imp-bars').innerHTML = imps.map(x => {
+  const w = (100 * x.importance / maxI).toFixed(1);
+  return `<div class="bar-row"><span>${x.feature}</span><div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div><span>${x.importance}</span></div>`;
+}).join('');
+
+// bands table + svg
+const bc = DATA.band_chart || [];
+document.querySelector('#tbl-bands thead').innerHTML = '<tr><th>Fascia</th><th>n</th><th>mean y</th><th>Naive</th><th>CDM</th><th>TF</th><th>LGBM</th><th>Route</th></tr>';
+document.querySelector('#tbl-bands tbody').innerHTML = bc.map(r =>
+  `<tr><td>${r.band}</td><td>${r.n??''}</td><td>${(r.mean_y??0).toFixed?.(2) ?? r.mean_y}</td><td>${fmt(r.naive)}</td><td>${fmt(r.cdm)}</td><td>${fmt(r.tf_blend)}</td><td>${fmt(r.lgbm_blend)}</td><td>${fmt(r.route_mix)}</td></tr>`
+).join('');
+function fmt(v){ return v==null?'—':Number(v).toFixed(2); }
+
+(function drawBands(){
+  const svg = document.getElementById('band-svg');
+  if (!bc.length) return;
+  const keys = [
+    ['naive','#93a0b5'],['cdm','#e86a6a'],['tf_blend','#5b9fd4'],['lgbm_blend','#3ecf8e'],['route_mix','#e6b84d']
+  ];
+  const W=720,H=260,padL=48,padR=16,padT=16,padB=40;
+  const groups = bc.length;
+  const series = keys.filter(([k]) => bc.some(r => r[k]!=null));
+  const maxV = Math.max(...bc.flatMap(r => series.map(([k]) => r[k]||0)), 1);
+  const gW = (W-padL-padR)/groups;
+  let html = '';
+  // axes
+  html += `<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#243047"/>`;
+  html += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#243047"/>`;
+  for (let i=0;i<=4;i++){
+    const y = padT + (H-padT-padB)*(1-i/4);
+    const v = (maxV*i/4).toFixed(0);
+    html += `<text x="${padL-6}" y="${y+3}" text-anchor="end">${v}</text>`;
+    html += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1a2438"/>`;
+  }
+  bc.forEach((r,gi) => {
+    const x0 = padL + gi*gW + 8;
+    const bw = (gW-16)/series.length;
+    series.forEach(([k,col],si) => {
+      const v = r[k]; if (v==null) return;
+      const h = (H-padT-padB)*v/maxV;
+      const x = x0 + si*bw;
+      const y = H-padB-h;
+      html += `<rect x="${x}" y="${y}" width="${Math.max(bw-2,2)}" height="${h}" fill="${col}" rx="2"/>`;
+    });
+    html += `<text x="${padL + gi*gW + gW/2}" y="${H-14}" text-anchor="middle">${r.band}</text>`;
+  });
+  html += `<text x="14" y="20" transform="rotate(-90 14 130)">MAE (pezzi)</text>`;
+  svg.innerHTML = html;
+})();
+
+// coverage
+const c = DATA.coverage;
+document.getElementById('cov-stats').innerHTML = [
+  stat('SKU', c.n_sku.toLocaleString('it')),
+  stat('PDV', c.n_pdv),
+  stat('Modello', c.modello_pct+'%'),
+  stat('Colore', c.colore_pct+'%'),
+  stat('Tessuto', c.tessuto_pct+'%'),
+  stat('Campagna', c.campagna_pct+'%'),
+  stat('Classe', c.classe_pct+'%'),
+  stat('PDV con city', c.city_pct+'%', `${c.countries_cal} paesi calendario`),
+].join('');
+
+// history
+(function drawHist(){
+  const rows = DATA.history||[];
+  const svg = document.getElementById('hist-svg');
+  if (rows.length < 2) { svg.outerHTML = '<p class="note">Nessuna history.csv</p>'; return; }
+  const key = rows[0].val_y_sku_mae != null ? 'val_y_sku_mae' : (rows[0].val_loss!=null?'val_loss':'loss');
+  const key2 = rows[0].y_sku_mae != null ? 'y_sku_mae' : 'loss';
+  const W=720,H=260,padL=48,padR=16,padT=16,padB=36;
+  const xs = rows.map(r => r.epoch);
+  const ys = rows.map(r => r[key]).filter(v=>v!=null);
+  const ys2 = rows.map(r => r[key2]).filter(v=>v!=null);
+  const minY = Math.min(...ys,...ys2)*0.95, maxY = Math.max(...ys,...ys2)*1.05;
+  const xOf = e => padL + (W-padL-padR)*((e-xs[0])/(xs[xs.length-1]-xs[0]||1));
+  const yOf = v => padT + (H-padT-padB)*(1-(v-minY)/(maxY-minY||1));
+  function path(arr, getter) {
+    return arr.map((r,i)=>`${i?'L':'M'}${xOf(r.epoch).toFixed(1)},${yOf(getter(r)).toFixed(1)}`).join(' ');
+  }
+  let html = `<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#243047"/>`;
+  html += `<path d="${path(rows, r=>r[key2])}" fill="none" stroke="#5b9fd4" stroke-width="2"/>`;
+  html += `<path d="${path(rows, r=>r[key])}" fill="none" stroke="#e6b84d" stroke-width="2"/>`;
+  html += `<text x="${W/2}" y="${H-10}" text-anchor="middle">epoch</text>`;
+  html += `<text x="${padL}" y="12">train MAE</text><text x="${padL+80}" y="12" fill="#e6b84d">val MAE</text>`;
+  svg.innerHTML = html;
+})();
+
+document.getElementById('notes-list').innerHTML = (DATA.notes||[]).map(n => `<p class="note">• ${n}</p>`).join('');
+</script>
+</body>
+</html>

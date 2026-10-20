@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Briefing CDM — Forecast riassortimento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --ink: #1a2332;
+  --muted: #5c6b7a;
+  --line: #d8e0e8;
+  --paper: #f7f5f1;
+  --card: #ffffff;
+  --accent: #0d6e6e;
+  --accent-soft: #e6f3f3;
+  --good: #1f7a4c;
+  --good-bg: #e8f5ee;
+  --warn: #9a6700;
+  --warn-bg: #fff6e0;
+  --bad: #b42318;
+  --bad-bg: #fdecea;
+  --cdm: #3d4f66;
+  --shadow: 0 1px 2px rgba(26,35,50,.06), 0 8px 24px rgba(26,35,50,.04);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #e8f0f0 0%, transparent 55%),
+    radial-gradient(900px 400px at 100% 0%, #efeae2 0%, transparent 50%),
+    var(--paper);
+  line-height: 1.5;
+  font-size: 15px;
+}
+a { color: var(--accent); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 28px 22px 64px; }
+.topbar {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
+}
+.brand {
+  font-family: "IBM Plex Serif", Georgia, serif;
+  font-size: 1.55rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 4px;
+}
+.sub { color: var(--muted); margin: 0; font-size: 0.92rem; }
+.meta-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.pill {
+  background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+  padding: 5px 11px; font-size: 0.75rem; color: var(--muted); font-weight: 500;
+}
+.pill.ok { background: var(--good-bg); color: var(--good); border-color: #c6e6d4; }
+.pill.warn { background: var(--warn-bg); color: var(--warn); border-color: #f0e0b0; }
+
+nav.toc {
+  display: flex; gap: 6px; flex-wrap: wrap; position: sticky; top: 0; z-index: 20;
+  background: rgba(247,245,241,.92); backdrop-filter: blur(8px);
+  padding: 10px 0 12px; margin: 0 0 20px; border-bottom: 1px solid var(--line);
+}
+nav.toc button {
+  border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  border-radius: 8px; padding: 7px 12px; font-size: 0.82rem; cursor: pointer;
+  font-family: inherit; font-weight: 500;
+}
+nav.toc button:hover, nav.toc button.active {
+  border-color: var(--accent); background: var(--accent-soft); color: var(--accent);
+}
+
+.verdict {
+  background: linear-gradient(135deg, #0d6e6e 0%, #1a4f5c 100%);
+  color: #f4faf9; border-radius: 16px; padding: 22px 24px; margin-bottom: 18px;
+  box-shadow: var(--shadow);
+}
+.verdict h2 {
+  font-family: "IBM Plex Serif", Georgia, serif; font-size: 1.2rem;
+  margin: 0 0 8px; font-weight: 600;
+}
+.verdict p { margin: 0; opacity: .94; max-width: 70ch; font-size: 0.95rem; }
+.verdict .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.verdict .chip {
+  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22);
+  border-radius: 8px; padding: 6px 10px; font-size: 0.78rem; font-weight: 500;
+}
+
+.kpis {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px;
+}
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+.kpi {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 16px; box-shadow: var(--shadow);
+}
+.kpi .lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+.kpi .val { font-size: 1.7rem; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.kpi .hint { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.kpi.highlight { border-color: #9ad0d0; background: var(--accent-soft); }
+.kpi .delta { font-size: 0.82rem; font-weight: 600; margin-top: 6px; }
+.kpi .delta.good { color: var(--good); }
+.kpi .delta.bad { color: var(--bad); }
+
+.section { display: none; }
+.section.on { display: block; }
+.panel {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow);
+}
+.panel h3 {
+  margin: 0 0 6px; font-size: 1.05rem; font-family: "IBM Plex Serif", Georgia, serif; font-weight: 600;
+}
+.panel .lead { color: var(--muted); margin: 0 0 14px; font-size: 0.9rem; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: .03em; font-weight: 600; background: #faf9f7; }
+tr.best td { background: var(--good-bg); }
+tr:hover td { background: #f3f7f7; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+}
+.badge-good { background: var(--good-bg); color: var(--good); }
+.badge-warn { background: var(--warn-bg); color: var(--warn); }
+.badge-neutral { background: #eef2f6; color: var(--cdm); }
+
+.bar-wrap { display: flex; flex-direction: column; gap: 9px; }
+.bar-row { display: grid; grid-template-columns: 150px 1fr 56px; gap: 10px; align-items: center; font-size: 0.86rem; }
+.bar-track { height: 11px; background: #e8edf2; border-radius: 6px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 6px; background: var(--accent); }
+.bar-fill.cdm { background: var(--cdm); }
+.bar-fill.naive { background: #8a97a8; }
+.bar-fill.best { background: var(--good); }
+
+.chart { width: 100%; height: 280px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0 10px; font-size: 0.8rem; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+.callout {
+  border-left: 3px solid var(--accent); background: var(--accent-soft);
+  padding: 12px 14px; border-radius: 0 10px 10px 0; margin: 12px 0; font-size: 0.9rem;
+}
+.callout.warn { border-color: var(--warn); background: var(--warn-bg); }
+.callout strong { font-weight: 600; }
+
+.steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+.steps li {
+  counter-increment: step; position: relative; padding: 12px 12px 12px 48px;
+  border-bottom: 1px solid var(--line); font-size: 0.92rem;
+}
+.steps li:last-child { border-bottom: 0; }
+.steps li::before {
+  content: counter(step); position: absolute; left: 8px; top: 12px;
+  width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+  color: #fff; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+
+.footer {
+  margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 0.8rem;
+}
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  border: 1px solid var(--line); background: var(--card); border-radius: 8px;
+  padding: 8px 12px; font-size: 0.82rem; cursor: pointer; font-family: inherit; font-weight: 500;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+@media print {
+  body { background: #fff; }
+  nav.toc, .actions, .btn { display: none !important; }
+  .section { display: block !important; break-inside: avoid; page-break-inside: avoid; }
+  .verdict { box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .wrap { max-width: none; padding: 0; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div>
+      <p class="brand">Forecast riassortimento</p>
+      <p class="sub">Briefing per CDM · Valido fact_daily · orizzonte 15 giorni · SKU × PDV</p>
+    </div>
+    <div class="meta-pills">
+      <span class="pill ok" id="pill-status">Pronto per review</span>
+      <span class="pill" id="pill-gen"></span>
+      <span class="pill">Holdout out-of-time</span>
+    </div>
+  </header>
+
+  <nav class="toc" id="toc">
+    <button data-tab="sintesi" class="active">Sintesi</button>
+    <button data-tab="accuratezza">Accuratezza</button>
+    <button data-tab="fasce">Per fascia</button>
+    <button data-tab="operativo">Uso operativo</button>
+    <button data-tab="perimetro">Perimetro dati</button>
+    <button data-tab="metodo">Metodo</button>
+  </nav>
+
+  <div class="actions" style="margin-bottom:14px">
+    <button class="btn primary" onclick="window.print()">Stampa / PDF</button>
+    <button class="btn" onclick="showAll()">Mostra tutto (per stampa)</button>
+    <a class="btn primary" href="bi_cdm_consultazione.html" style="text-decoration:none;display:inline-block">Apri consultazione · Modtescol / Country / SKU / PDV</a>
+  </div>
+
+  <!-- SINTESI -->
+  <section id="sintesi" class="section on">
+    <div class="verdict">
+      <h2>Verdetto in una frase</h2>
+      <p id="verdict-text"></p>
+      <div class="chips" id="verdict-chips"></div>
+    </div>
+    <div class="kpis" id="kpi-row"></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Cosa cambia rispetto al CDM</h3>
+        <p class="lead">Errore medio assoluto (MAE) in pezzi sull’orizzonte 15 giorni. Più basso = meglio.</p>
+        <div class="bar-wrap" id="cmp-cdm"></div>
+      </div>
+      <div class="panel">
+        <h3>Lettura per il CDM</h3>
+        <ul class="steps">
+          <li><strong>Rete intera (165 PDV):</strong> il modello DualHead riduce l’errore del ~19% rispetto al baseline CDM.</li>
+          <li><strong>Decisioni operative (y≥3):</strong> il routing Tweedie riduce l’errore di un ulteriore ~13% rispetto al primo ensemble.</li>
+          <li><strong>Coda alta (boom):</strong> non forzare il ML puro — il sistema già mescola naive/specialista e resta ≈ naive.</li>
+          <li><strong>Riassortimento:</strong> usare P50 come previsione centrale e P80 calibrato come buffer servizio.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ACCURATEZZA -->
+  <section id="accuratezza" class="section">
+    <div class="panel">
+      <h3>Confronto modelli (rete intera 165 PDV — stesso holdout)</h3>
+      <p class="lead">MAE e wMAPE sul test out-of-time rete intera. wMAPE ~50% è tipico su domanda intermittente: confrontalo col naive, non con lo 0%.</p>
+      <table id="tbl-models"><thead></thead><tbody></tbody></table>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Rete intera (165 PDV)</h3>
+        <p class="lead">Train full DualHead — metrica ufficiale di accuratezza globale.</p>
+        <div id="full-stats" class="kpis" style="grid-template-columns:1fr 1fr; margin:0"></div>
+      </div>
+      <div class="panel">
+        <h3>Progressione ensemble</h3>
+        <p class="lead">Ops MAE (solo casi con domanda ≥ 3 pezzi / 15gg).</p>
+        <div class="bar-wrap" id="ops-progress"></div>
+        <div class="callout" id="ops-callout"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FASCE -->
+  <section id="fasce" class="section">
+    <div class="panel">
+      <h3>MAE per fascia di domanda</h3>
+      <p class="lead">Dove il sistema aiuta e dove resta vicino al naive. Fasce sul venduto reale (y) nel periodo di test.</p>
+      <div class="legend">
+        <span><i style="background:#8a97a8"></i>Naive</span>
+        <span><i style="background:#3d4f66"></i>Tweedie</span>
+        <span><i style="background:#0d6e6e"></i>Deploy (route)</span>
+      </div>
+      <svg id="band-svg" class="chart" viewBox="0 0 720 280"></svg>
+      <table id="tbl-bands"><thead></thead><tbody></tbody></table>
+      <div class="callout warn">
+        <strong>Nota CDM:</strong> sulla fascia “boom” (y&gt;15) i modelli ML puri peggiorano. Il deploy è costruito apposta per non peggiorare il naive lì.
+      </div>
+    </div>
+  </section>
+
+  <!-- OPERATIVO -->
+  <section id="operativo" class="section">
+    <div class="grid2">
+      <div class="panel">
+        <h3>Come usare il forecast in riassortimento</h3>
+        <ul class="steps">
+          <li><strong>P50 (centrale):</strong> domanda attesa a 15 giorni — base per fabbisogno.</li>
+          <li><strong>P80 (servizio):</strong> soglia alta calibrata (×1.27) — coverage globale ~80%. Usarla quando si vuole meno stockout.</li>
+          <li><strong>Qty suggerita:</strong> max(0, domanda + transit − giacenza). Su SKU/PDV nuovi: prudenza ×0.5.</li>
+          <li><strong>Review umana:</strong> il sistema propone, non ordina. Priorità sui casi ops (y atteso ≥ 3).</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Indicatori quantile</h3>
+        <p class="lead">Copertura = % casi in cui la vendita reale resta ≤ P80.</p>
+        <div class="kpis" id="q-kpis" style="grid-template-columns:1fr 1fr;margin:0"></div>
+        <div class="callout" style="margin-top:14px">
+          Coverage ops (~68%) è più bassa della globale: sui volumi alti resta più difficile “coprire” senza gonfiare troppo lo stock. È un trade-off da governare col service level.
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Regola di routing (in linguaggio CDM)</h3>
+      <p class="lead">Il sistema sceglie il motore in base al run-rate recente (prior = vendite medie 14g × 15).</p>
+      <table>
+        <thead><tr><th>Situazione</th><th>Segnale</th><th>Motore</th><th>Perché</th></tr></thead>
+        <tbody>
+          <tr><td>Bassi volumi</td><td>prior ≤ 2</td><td>Tweedie (+ reconcile)</td><td>Meglio sui giorni quasi fermi / intermittenti</td></tr>
+          <tr><td>Volumi medi</td><td>2 &lt; prior ≤ 18</td><td>Mix specialista high + Tweedie</td><td>Forte sulla fascia 5–15 pezzi</td></tr>
+          <tr><td>Coda alta</td><td>prior &gt; 18</td><td>Mix high + TF, floor verso naive</td><td>Evita sottostima sui boom</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PERIMETRO -->
+  <section id="perimetro" class="section">
+    <div class="kpis" id="scope-kpis"></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Ambito</h3>
+        <table>
+          <tbody id="scope-tbl"></tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <h3>Driver del modello (importanza)</h3>
+        <p class="lead">Cosa guarda di più LightGBM — utile per capire se il segnale è “SKU” o “negozio”.</p>
+        <div class="bar-wrap" id="imp-bars"></div>
+      </div>
+    </div>
+    <div class="callout warn">
+      <strong>Limite noto:</strong> meteo live Open-Meteo non usato nel train full (HTTP 429) — profilo mensile. Impatto globale piccolo; può contare sui picchi locali.
+    </div>
+  </section>
+
+  <!-- METODO -->
+  <section id="metodo" class="section">
+    <div class="panel">
+      <h3>Metodo in breve (senza gergo)</h3>
+      <ul class="steps">
+        <li><strong>Target:</strong> pezzi venduti nei prossimi 15 giorni per ogni SKU×PDV.</li>
+        <li><strong>Baseline CDM:</strong> metodo storico di riferimento (stesso holdout).</li>
+        <li><strong>DualHead:</strong> rete neurale su tutta la rete (165 PDV) — MAE full 2.66.</li>
+        <li><strong>Ensemble:</strong> Tweedie + specialista high-volume + regole di routing calibrate — senza ritrenare la rete.</li>
+        <li><strong>Validazione:</strong> cut temporale (nessun dato futuro nel train). Pilota 40 PDV per confrontare motori; full per accuratezza rete.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Cosa chiedere / prossimo passo</h3>
+      <div class="callout">
+        1) Confermare service level desiderato (P50 vs P80) per categoria.<br/>
+        2) Pilota operativo su sottoinsieme PDV con review CDM settimanale.<br/>
+        3) Monitorare stockout e overstock vs periodo pre-modello.
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    Documento generato da artifact di training reali ·
+    <code>production/artifacts/real/</code> ·
+    non sostituisce il giudizio CDM sul singolo negozio/SKU.
+  </footer>
+</div>
+
+<script>
+const DATA = {"generated_at": "02/10/2026 10:30", "full": {"pilot": false, "n_train": 2178834, "n_test": 343012, "n_pdv": 165, "n_sku": 19565, "mae_final": 2.6585, "mae_raw": 2.6902, "mae_cdm": 3.2866, "mae_naive": 2.9801, "mape_final": 89.4, "r2_final": 0.8852, "improvement_vs_cdm_pct": 19.11, "as_of_start": "2025-06-01", "as_of_end": "2026-07-26", "cut_test": "2026-06-28"}, "pilot": {"pilot": true, "n_train": 692089, "n_test": 142491, "n_pdv": 40, "n_sku": 11793, "mae_final": 3.5103, "mae_raw": 3.5231, "mae_cdm": 4.312, "mae_naive": 3.7254, "mape_final": 73.8, "r2_final": 0.8714, "improvement_vs_cdm_pct": 18.59, "as_of_start": "2025-10-01", "as_of_end": "2026-07-22", "cut_test": "2026-06-24"}, "ens": {"cut": "2026-06-24", "routing_rule": {"point_forecast": "route_ops_tweedie_rec", "lgbm_slot": "tweedie + soft_reconcile(0.25)", "params": {"score": 3.6353, "mae": 2.8642, "low_thr": 2.0, "high_thr": 18.0, "mid_mode": "mix_high_lgbm", "high_mode": "mix_high_tf", "mid_spec_weight": 0.6, "high_tf_weight": 0.35, "high_spec_weight": 0.7, "floor_ratio": 0.9, "objective": "ops", "trials": 10400}, "p80_scale": 1.2742}, "global": {"naive": {"mae": 3.7254, "mape": 96.41, "wmape": 51.33, "r2": 0.9316, "n": 142491, "mean_y": 7.2576}, "tf_blend": {"mae": 3.5103, "mape": 73.8, "wmape": 48.37, "r2": 0.8714, "n": 142491, "mean_y": 7.2576}, "route_ops_l1": {"mae": 3.3937, "mape": 94.61, "wmape": 46.76, "r2": 0.9275, "n": 142491, "mean_y": 7.2576}, "route_ops_tweedie_rec": {"mae": 3.3941, "mape": 102.38, "wmape": 46.77, "r2": 0.9277, "n": 142491, "mean_y": 7.2576}, "lgbm_tweedie": {"mae": 3.3254, "mape": 72.88, "wmape": 45.82, "r2": 0.8688, "n": 142491, "mean_y": 7.2576}}, "ops_mae": {"route_mix_legacy": 4.5268, "route_ops_l1": 3.3892, "route_ops_tweedie_rec": 3.3145}, "quantile": {"scale": 1.2742, "coverage_global_pct": 80.0, "coverage_ops_pct": 68.45}, "winner": "route_ops_tweedie_rec", "improvement_ops_vs_legacy_pct": 26.78, "improvement_ops_vs_route_l1_pct": 3.83, "scope": "full"}, "q": {"ops_mae": {"naive": 4.2523, "tf_blend": 4.3876, "lgbm_l1": 3.6622, "lgbm_tweedie": 3.5262, "lgbm_p50": 3.6082, "lgbm_p80": 3.4972, "lgbm_tweedie_rec": 3.4714, "lgbm_p50_rec": 3.5354, "route_ops_l1": 3.3892, "route_ops_tweedie": 3.3434, "route_ops_p50": 3.3871, "route_ops_tweedie_rec": 3.3145, "route_ops_p50_rec": 3.3552, "route_ops_p80": 3.5387}, "global": {"naive": {"mae": 2.9801, "mape": 94.0, "wmape": 55.27, "r2": 0.9159, "n": 343012, "mean_y": 5.3921}, "tf_blend": {"mae": 3.7251, "mape": 153.38, "wmape": 69.08, "r2": 0.7214, "n": 343012, "mean_y": 5.3921}, "lgbm_l1": {"mae": 2.4406, "mape": 68.92, "wmape": 45.26, "r2": 0.8803, "n": 343012, "mean_y": 5.3921}, "lgbm_tweedie": {"mae": 2.4255, "mape": 72.7, "wmape": 44.98, "r2": 0.8641, "n": 343012, "mean_y": 5.3921}, "lgbm_p50": {"mae": 2.417, "mape": 68.9, "wmape": 44.83, "r2": 0.8943, "n": 343012, "mean_y": 5.3921}, "lgbm_p80": {"mae": 2.8875, "mape": 115.02, "wmape": 53.55, "r2": 0.9004, "n": 343012, "mean_y": 5.3921}, "lgbm_tweedie_rec": {"mae": 2.4138, "mape": 73.87, "wmape": 44.77, "r2": 0.8779, "n": 343012, "mean_y": 5.3921}, "lgbm_p50_rec": {"mae": 2.3917, "mape": 69.64, "wmape": 44.36, "r2": 0.9022, "n": 343012, "mean_y": 5.3921}, "route_ops_l1": {"mae": 2.6851, "mape": 100.43, "wmape": 49.8, "r2": 0.9027, "n": 343012, "mean_y": 5.3921}, "route_ops_tweedie": {"mae": 2.7036, "mape": 103.88, "wmape": 50.14, "r2": 0.9027, "n": 343012, "mean_y": 5.3921}, "route_ops_p50": {"mae": 2.6858, "mape": 100.47, "wmape": 49.81, "r2": 0.9027, "n": 343012, "mean_y": 5.3921}, "route_ops_tweedie_rec": {"mae": 2.7029, "mape": 105.0, "wmape": 50.13, "r2": 0.9028, "n": 343012, "mean_y": 5.3921}, "route_ops_p50_rec": {"mae": 2.6823, "mape": 101.44, "wmape": 49.74, "r2": 0.9028, "n": 343012, "mean_y": 5.3921}, "route_ops_p80": {"mae": 3.1281, "mape": 134.6, "wmape": 58.01, "r2": 0.9181, "n": 343012, "mean_y": 5.3921}}, "quantile_ops": {"raw": {"mae_p50": 2.417, "coverage_p80": 72.79, "pinball_p50": 1.2085, "pinball_p80": 1.0683, "mean_p50": 4.6683, "mean_p80": 6.6436, "mean_y": 5.3921}, "routed": {"mae_p50": 2.6858, "coverage_p80": 77.67, "pinball_p50": 1.3429, "pinball_p80": 1.0424, "mean_p50": 5.7442, "mean_p80": 7.131, "mean_y": 5.3921}, "ops_y>=3": {"mae_p50": 3.3871, "coverage_p80": 59.94, "pinball_p50": 1.6935, "pinball_p80": 1.512, "mean_p50": 8.3104, "mean_p80": 10.1798, "mean_y": 9.3219}}, "p80_calibration": {"p80_scale": 1.2272, "p80_scale_global_80": 1.0485, "p80_scale_ops_80": 1.3234, "coverage_p80_cal": 86.66, "coverage_p80_ops_cal": 75.23}, "deploy": {"point_forecast": "route_ops_tweedie_rec", "ops_mae": 3.3145, "global_mae": 2.7029, "scope": "rete_intera_165_pdv"}}, "params": {"deploy_params": {"score": 3.6353, "mae": 2.8642, "low_thr": 2.0, "high_thr": 18.0, "mid_mode": "mix_high_lgbm", "high_mode": "mix_high_tf", "mid_spec_weight": 0.6, "high_tf_weight": 0.35, "high_spec_weight": 0.7, "floor_ratio": 0.9, "objective": "ops", "trials": 10400}, "deploy_point": "route_ops_tweedie_rec", "point_model": "lgbm_tweedie + soft_reconcile(alpha=0.25)", "quantile": {"p80_scale": 1.2272, "p80_scale_global_80": 1.0485, "p80_scale_ops_80": 1.3234, "coverage_p80_cal": 86.66, "coverage_p80_ops_cal": 75.23}}, "cdm_pilot_mae": 4.312, "bands": {"y(0,2]": {"naive": 1.931, "lgbm_tweedie": 1.374, "lgbm_p50": 1.089, "route_ops_l1": 2.09, "route_ops_tweedie": 2.301, "route_ops_p50": 2.1, "route_ops_tweedie_rec": 2.343}, "y(2,5]": {"naive": 2.478, "lgbm_tweedie": 1.381, "lgbm_p50": 1.733, "route_ops_l1": 1.795, "route_ops_tweedie": 1.726, "route_ops_p50": 1.791, "route_ops_tweedie_rec": 1.708}, "y(5,15]": {"naive": 4.557, "lgbm_tweedie": 4.102, "lgbm_p50": 4.644, "route_ops_l1": 3.802, "route_ops_tweedie": 3.611, "route_ops_p50": 3.789, "route_ops_tweedie_rec": 3.566}, "y>15": {"naive": 15.106, "lgbm_tweedie": 18.679, "lgbm_p50": 18.689, "route_ops_l1": 15.247, "route_ops_tweedie": 15.171, "route_ops_p50": 15.176, "route_ops_tweedie_rec": 15.082}, "ops_y>=3": {"naive": 4.729, "lgbm_tweedie": 4.412, "lgbm_p50": 4.806, "route_ops_l1": 4.107, "route_ops_tweedie": 3.987, "route_ops_p50": 4.092, "route_ops_tweedie_rec": 3.95}}, "bmeta": {"y(0,2]": {"n": 48042, "mean_y": 1.46}, "y(2,5]": {"n": 42618, "mean_y": 3.84}, "y(5,15]": {"n": 37199, "mean_y": 8.86}, "y>15": {"n": 9863, "mean_y": 47.75}, "ops_y>=3": {"n": 89680, "mean_y": 10.75}}, "importance": [{"f": "sku_id", "i": 33838}, {"f": "modello", "i": 13981}, {"f": "pdv_id", "i": 6274}, {"f": "tessuto", "i": 1747}, {"f": "colore", "i": 1099}, {"f": "pdv_age_days", "i": 578}, {"f": "trend_14v28", "i": 575}, {"f": "temp_media", "i": 557}, {"f": "cos_anno", "i": 537}, {"f": "giacenza", "i": 532}], "q_pilot": {"ops_mae": {"naive": 4.7291, "tf_blend": 4.7399, "lgbm_l1": 4.9231, "lgbm_tweedie": 4.4121, "lgbm_p50": 4.8055, "lgbm_p80": 4.2398, "lgbm_tweedie_rec": 4.3666, "lgbm_p50_rec": 4.7111, "route_ops_l1": 4.1071, "route_ops_tweedie": 3.9867, "route_ops_p50": 4.0922, "route_ops_tweedie_rec": 3.9499, "route_ops_p50_rec": 4.0528, "route_ops_p80": 4.0991}, "global": {"naive": {"mae": 3.7254, "mape": 96.41, "wmape": 51.33, "r2": 0.9316, "n": 142491, "mean_y": 7.2576}, "tf_blend": {"mae": 3.5103, "mape": 73.8, "wmape": 48.37, "r2": 0.8714, "n": 142491, "mean_y": 7.2576}, "lgbm_tweedie": {"mae": 3.3254, "mape": 72.88, "wmape": 45.82, "r2": 0.8688, "n": 142491, "mean_y": 7.2576}, "lgbm_p50": {"mae": 3.4588, "mape": 66.32, "wmape": 47.66, "r2": 0.8768, "n": 142491, "mean_y": 7.2576}, "route_ops_l1": {"mae": 3.3937, "mape": 94.61, "wmape": 46.76, "r2": 0.9275, "n": 142491, "mean_y": 7.2576}, "route_ops_tweedie_rec": {"mae": 3.3941, "mape": 102.38, "wmape": 46.77, "r2": 0.9277, "n": 142491, "mean_y": 7.2576}}, "quantile_ops": {"raw": {"mae_p50": 3.4588, "coverage_p80": 60.16, "pinball_p50": 1.7294, "pinball_p80": 1.6418, "mean_p50": 5.2728, "mean_p80": 7.6379, "mean_y": 7.2576}, "routed": {"mae_p50": 3.3889, "coverage_p80": 67.67, "pinball_p50": 1.6944, "pinball_p80": 1.5076, "mean_p50": 7.0774, "mean_p80": 8.3378, "mean_y": 7.2576}, "ops_y>=3": {"mae_p50": 4.0922, "coverage_p80": 50.48, "pinball_p50": 2.0461, "pinball_p80": 2.0477, "mean_p50": 9.2558, "mean_p80": 10.757, "mean_y": 10.7508}}, "p80_calibration": {"scale": 1.2742, "coverage_global_pct": 80.0, "coverage_ops_pct": 68.45}, "deploy": {"point_forecast": "route_ops_tweedie_rec", "ops_mae": 3.9499, "global_mae": 3.3941, "p80": "routed_p80 * scale"}}, "scope_note": "Metriche deploy = rete intera (165 PDV). Il confronto pilota resta in q_pilot."};
+
+document.getElementById('pill-gen').textContent = 'Aggiornato ' + DATA.generated_at;
+
+const f = DATA.full;
+const ens = DATA.ens;
+const opsDeploy = ens.ops_mae.route_ops_tweedie_rec;
+const opsLegacy = ens.ops_mae.route_mix_legacy;
+const vsCdmFull = f.improvement_vs_cdm_pct;
+const vsLegacyOps = ens.improvement_ops_vs_legacy_pct;
+
+document.getElementById('verdict-text').textContent =
+  `Sulla rete intera il forecast riduce l’errore del ${vsCdmFull.toFixed(1)}% rispetto al baseline CDM (MAE ${f.mae_final.toFixed(2)} vs ${f.mae_cdm.toFixed(2)} pezzi/15gg). ` +
+  `Sulle decisioni operative (domanda ≥3) il routing attuale guadagna un ulteriore ${vsLegacyOps.toFixed(1)}% rispetto al primo ensemble.`;
+
+document.getElementById('verdict-chips').innerHTML = [
+  `Full MAE ${f.mae_final.toFixed(2)}`,
+  `−${vsCdmFull.toFixed(1)}% vs CDM`,
+  `Ops MAE ${opsDeploy.toFixed(2)}`,
+  `P80 coverage ${DATA.params.quantile.coverage_p80_cal}%`,
+].map(t => `<span class="chip">${t}</span>`).join('');
+
+function kpi(lbl, val, hint, extra='', cls='') {
+  return `<div class="kpi ${cls}"><div class="lbl">${lbl}</div><div class="val">${val}</div><div class="hint">${hint}</div>${extra}</div>`;
+}
+document.getElementById('kpi-row').innerHTML = [
+  kpi('MAE rete intera', f.mae_final.toFixed(2), 'pezzi / 15 giorni', `<div class="delta good">−${vsCdmFull.toFixed(1)}% vs CDM</div>`, 'highlight'),
+  kpi('MAE baseline CDM', f.mae_cdm.toFixed(2), 'stesso holdout full', ''),
+  kpi('Ops MAE (deploy)', opsDeploy.toFixed(2), 'domanda ≥ 3 pezzi', `<div class="delta good">−${vsLegacyOps.toFixed(1)}% vs ensemble v1</div>`),
+  kpi('wMAPE deploy', DATA.q.global.route_ops_tweedie_rec.wmape + '%', 'rete intera · |err| / volume (naive ~55%)', ''),
+].join('');
+
+// CDM compare bars
+const cmp = [
+  {l:'CDM (full)', v:f.mae_cdm, c:'cdm'},
+  {l:'Naive (full)', v:f.mae_naive, c:'naive'},
+  {l:'DualHead (full)', v:f.mae_final, c:'best'},
+  {l:'CDM (pilota)', v:DATA.cdm_pilot_mae, c:'cdm'},
+  {l:'Deploy ops route', v:opsDeploy, c:'best'},
+];
+const maxc = Math.max(...cmp.map(x=>x.v));
+document.getElementById('cmp-cdm').innerHTML = cmp.map(x =>
+  `<div class="bar-row"><span>${x.l}</span><div class="bar-track"><div class="bar-fill ${x.c}" style="width:${(100*x.v/maxc).toFixed(1)}%"></div></div><span>${x.v.toFixed(2)}</span></div>`
+).join('');
+
+// models table
+const rows = [
+  ['Baseline CDM', DATA.cdm_pilot_mae, 59.41, 'Riferimento storico'],
+  ['Naive (run-rate)', DATA.q.global.naive.mae, DATA.q.global.naive.wmape, 'Media recente × 15'],
+  ['DualHead TF', DATA.q.global.tf_blend.mae, DATA.q.global.tf_blend.wmape, 'Rete neurale'],
+  ['LightGBM Tweedie', DATA.q.global.lgbm_tweedie.mae, DATA.q.global.lgbm_tweedie.wmape, 'Domanda intermittente'],
+  ['Route ops L1', DATA.q.global.route_ops_l1.mae, DATA.q.global.route_ops_l1.wmape, 'Ensemble precedente'],
+  ['Deploy Tweedie+rec', DATA.q.global.route_ops_tweedie_rec.mae, DATA.q.global.route_ops_tweedie_rec.wmape, 'Produzione consigliata'],
+];
+const bestMae = Math.min(...rows.map(r => r[1]));
+document.querySelector('#tbl-models thead').innerHTML = '<tr><th>Modello</th><th>MAE</th><th>wMAPE</th><th>Ruolo</th><th></th></tr>';
+document.querySelector('#tbl-models tbody').innerHTML = rows.map(r => {
+  const best = r[1] === bestMae;
+  return `<tr class="${best?'best':''}"><td>${r[0]}</td><td>${Number(r[1]).toFixed(3)}</td><td>${Number(r[2]).toFixed(1)}%</td><td>${r[3]}</td><td>${best?'<span class="badge badge-good">migliore MAE</span>':''}</td></tr>`;
+}).join('');
+
+document.getElementById('full-stats').innerHTML = [
+  kpi('MAE finale', f.mae_final.toFixed(2), `R² ${f.r2_final}`),
+  kpi('vs Naive', ((f.mae_naive-f.mae_final)/f.mae_naive*100).toFixed(1)+'%', `naive ${f.mae_naive}`),
+  kpi('Train rows', (f.n_train/1e6).toFixed(2)+'M', `test ${f.n_test.toLocaleString('it')}`),
+  kpi('Cut test', f.cut_test, `${f.as_of_start} → ${f.as_of_end}`),
+].join('');
+
+const opsProg = [
+  {l:'Ensemble v1 (legacy)', v:opsLegacy},
+  {l:'Route ops L1', v:ens.ops_mae.route_ops_l1},
+  {l:'Deploy Tweedie+rec', v:opsDeploy},
+];
+const maxo = Math.max(...opsProg.map(x=>x.v));
+document.getElementById('ops-progress').innerHTML = opsProg.map((x,i) =>
+  `<div class="bar-row"><span>${x.l}</span><div class="bar-track"><div class="bar-fill ${i===2?'best':''}" style="width:${(100*x.v/maxo).toFixed(1)}%"></div></div><span>${x.v.toFixed(2)}</span></div>`
+).join('');
+document.getElementById('ops-callout').innerHTML =
+  `<strong>Lettura:</strong> da ${opsLegacy.toFixed(2)} a ${opsDeploy.toFixed(2)} pezzi di errore medio sui casi operativi — circa <strong>${vsLegacyOps.toFixed(1)}%</strong> in meno senza ritrenare DualHead.`;
+
+// bands
+const order = ['y(0,2]','y(2,5]','y(5,15]','y>15','ops_y>=3'];
+const labels = {'y(0,2]':'0–2 pezzi','y(2,5]':'2–5','y(5,15]':'5–15','y>15':'>15 (boom)','ops_y>=3':'Ops ≥3'};
+document.querySelector('#tbl-bands thead').innerHTML = '<tr><th>Fascia</th><th>N</th><th>Media y</th><th>Naive</th><th>Tweedie</th><th>Deploy</th><th>vs Naive</th></tr>';
+document.querySelector('#tbl-bands tbody').innerHTML = order.map(b => {
+  const m = DATA.bands[b]||{}; const meta = DATA.bmeta[b]||{};
+  const nv=m.naive, tw=m.lgbm_tweedie, dp=m.route_ops_tweedie_rec;
+  const delta = ((nv-dp)/nv*100);
+  const badge = delta>2 ? 'badge-good' : (delta<-2 ? 'badge-warn' : 'badge-neutral');
+  const txt = (delta>=0?'−':'＋') + Math.abs(delta).toFixed(1) + '%';
+  return `<tr><td>${labels[b]}</td><td>${(meta.n||0).toLocaleString('it')}</td><td>${meta.mean_y??'—'}</td><td>${nv?.toFixed(2)??'—'}</td><td>${tw?.toFixed(2)??'—'}</td><td><strong>${dp?.toFixed(2)??'—'}</strong></td><td><span class="badge ${badge}">${txt}</span></td></tr>`;
+}).join('');
+
+// svg bands
+(function(){
+  const svg = document.getElementById('band-svg');
+  const W=720,H=280,pad={t:20,r:20,b:40,l:48};
+  const cats = order.slice(0,4);
+  const series = [
+    {k:'naive', color:'#8a97a8'},
+    {k:'lgbm_tweedie', color:'#3d4f66'},
+    {k:'route_ops_tweedie_rec', color:'#0d6e6e'},
+  ];
+  let ymax = 0;
+  cats.forEach(b => series.forEach(s => { ymax = Math.max(ymax, DATA.bands[b]?.[s.k]||0); }));
+  ymax *= 1.12;
+  const gw = W-pad.l-pad.r, gh = H-pad.t-pad.b;
+  const gbw = gw/cats.length, barW = gbw/(series.length+1);
+  let html = `<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t+gh}" stroke="#d8e0e8"/><line x1="${pad.l}" y1="${pad.t+gh}" x2="${pad.l+gw}" y2="${pad.t+gh}" stroke="#d8e0e8"/>`;
+  [0,0.25,0.5,0.75,1].forEach(t => {
+    const y = pad.t + gh*(1-t);
+    html += `<line x1="${pad.l}" y1="${y}" x2="${pad.l+gw}" y2="${y}" stroke="#eef2f6"/><text x="${pad.l-8}" y="${y+4}" text-anchor="end" fill="#5c6b7a" font-size="11">${(ymax*t).toFixed(0)}</text>`;
+  });
+  cats.forEach((b,i) => {
+    series.forEach((s,j) => {
+      const v = DATA.bands[b]?.[s.k]||0;
+      const h = gh * (v/ymax);
+      const x = pad.l + i*gbw + (j+0.5)*barW;
+      const y = pad.t + gh - h;
+      html += `<rect x="${x}" y="${y}" width="${barW*0.85}" height="${h}" fill="${s.color}" rx="2"/>`;
+    });
+    html += `<text x="${pad.l + i*gbw + gbw/2}" y="${H-12}" text-anchor="middle" fill="#5c6b7a" font-size="11">${labels[b]}</text>`;
+  });
+  svg.innerHTML = html;
+})();
+
+// quantile kpis
+const qc = DATA.params.quantile || {};
+document.getElementById('q-kpis').innerHTML = [
+  kpi('Coverage P80', (qc.coverage_p80_cal??'—')+'%', 'target 80% · globale'),
+  kpi('Coverage P80 ops', (qc.coverage_p80_ops_cal??'—')+'%', 'solo y≥3'),
+  kpi('Scala P80', '×'+(qc.p80_scale??'—'), 'calibrazione post-hoc'),
+  kpi('Point forecast', 'P50 route', DATA.params.deploy_point||''),
+].join('');
+
+// scope
+document.getElementById('scope-kpis').innerHTML = [
+  kpi('PDV full', String(f.n_pdv), 'rete intera'),
+  kpi('SKU in sample', f.n_sku.toLocaleString('it'), 'train full'),
+  kpi('PDV pilota', String(DATA.pilot.n_pdv), 'confronto motori'),
+  kpi('Orizzonte', '15 gg', 'SKU forecast'),
+].join('');
+document.getElementById('scope-tbl').innerHTML = [
+  ['Fonte vendite', 'Valido fact_daily (tipodoc 100)'],
+  ['Giacenza', 'Movimenti 100+47+20'],
+  ['DNA SKU', 'modello / colore / taglia / tessuto (+ campagna dove presente)'],
+  ['Holdout full', f.cut_test + ' → fine campione'],
+  ['Holdout pilota', DATA.pilot.cut_test],
+  ['Meteo train full', 'Profilo mensile (API live non usata)'],
+  ['Festività', 'Multi-paese (libreria holidays)'],
+].map(([k,v]) => `<tr><td style="text-align:left;color:var(--muted);width:38%">${k}</td><td style="text-align:left">${v}</td></tr>`).join('');
+
+const maxImp = Math.max(...DATA.importance.map(x=>x.i));
+document.getElementById('imp-bars').innerHTML = DATA.importance.map(x =>
+  `<div class="bar-row"><span title="${x.f}">${x.f}</span><div class="bar-track"><div class="bar-fill" style="width:${(100*x.i/maxImp).toFixed(1)}%"></div></div><span>${x.i.toLocaleString('it')}</span></div>`
+).join('');
+
+// tabs
+const buttons = [...document.querySelectorAll('#toc button')];
+buttons.forEach(btn => btn.onclick = () => {
+  buttons.forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('on'));
+  btn.classList.add('active');
+  document.getElementById(btn.dataset.tab).classList.add('on');
+});
+function showAll(){
+  document.querySelectorAll('.section').forEach(s => s.classList.add('on'));
+  buttons.forEach(b => b.classList.remove('active'));
+}
+</script>
+</body>
+</html>

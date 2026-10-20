@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8"/>
+<title>Percorso esempio — dato grezzo → output</title>
+<style>
+ body{font-family:IBM Plex Sans,Segoe UI,sans-serif;margin:0;background:#eef1f5;color:#15202b}
+ header{background:linear-gradient(115deg,#1a334d,#0b6e4f);color:#fff;padding:20px}
+ .wrap{max-width:1100px;margin:0 auto;padding:16px 16px 48px}
+ section{background:#fff;border:1px solid #d3dce6;border-radius:12px;padding:16px;margin:14px 0}
+ img{max-width:100%;height:auto;border:1px solid #d3dce6;border-radius:8px}
+ code{background:#f0f4f8;padding:1px 5px;border-radius:4px}
+ .out{font-size:1.2rem;font-weight:700;color:#0b6e4f}
+ ol{line-height:1.55}
+</style></head><body>
+<header>
+<h1>Un dato grezzo, tutto il percorso</h1>
+<p>Esempio PDV <b>BASEK</b> · SKU <b>010OKPY040002</b> · as_of 2025-09-18</p>
+</header>
+<div class="wrap">
+<section>
+<h2>1 · Dato grezzo</h2>
+<ul>
+<li>Vendite ultimi 14 giorni: <b>12</b> pezzi in 9 giorni → RR14 = <b>0.8571</b></li>
+<li>Temp media 21.5°C · giacenza 12 · prezzo 129.0 · no sconto</li>
+<li>Naive 30g = RR × 30 = <b>25.71</b></li>
+</ul>
+</section>
+<section>
+<h2>2 · Dentro un albero LightGBM (come il diagramma che mi hai mostrato)</h2>
+<p>Il percorso dell’esempio è disegnato in <b>nero spesso</b>. Gli altri nodi restano sullo sfondo.</p>
+<img src="CDM_percorso_esempio_lgbm_albero.png" alt="Albero LightGBM con percorso"/>
+<ol><li><code>run_rate_14d = 0.8571  ≤  1.679</code> → <b>sinistra</b></li><li><code>run_rate_14d = 0.8571  >  0.4643</code> → <b>destra</b></li><li><code>run_rate_14d = 0.8571  >  0.8214</code> → <b>destra</b></li><li><code>run_rate_14d = 0.8571  ≤  1.179</code> → <b>sinistra</b></li><li><code>pdv_id = 10  ∉  {3,17,19…}</code> → <b>destra</b></li><li><code>sku_id = 100  ∉  {791,792,1013…}</code> → <b>destra</b></li><li><code>cos_mese = -1.837e-16  >  -0.933</code> → <b>destra</b></li><li><code>ssclasse = 1  ∈  {1,2,13…}</code> → <b>sinistra</b></li><li><code>pdv_id = 10  ∉  {1,54,64…}</code> → <b>destra</b></li><li><b>FOGLIA #70</b> contributo = <code>2.6256</code></li></ol>
+<p class="out">Output Tweedie h30 su questo esempio: 20.80 pezzi / 30 giorni</p>
+<p>(somma di ~380 alberi sul link log, poi exp)</p>
+</section>
+<section>
+<h2>3 · Stesso dato nella Dual-head (layer e neuroni)</h2>
+<img src="CDM_percorso_esempio_dualhead_neuroni.png" alt="Flusso neuroni Dual-head"/>
+<p class="out">Output Dual-head: 3.06 pezzi / 15 giorni · <code>ReLU(12.86 × 0.181 + (+0.742)) = 3.06</code></p>
+</section>
+<p><a href="CDM_percorso_esempio_dato.pdf">Scarica PDF</a></p>
+</div></body></html>

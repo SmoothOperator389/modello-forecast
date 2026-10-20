@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flusso dato grezzo → neuroni → output</title>
+  <style>
+    :root {
+      --bg: #eef1f5;
+      --panel: #fff;
+      --ink: #15202b;
+      --muted: #5c6b7a;
+      --line: #a8b4c2;
+      --raw: #8a5a2b;
+      --raw-bg: #f7efe4;
+      --feat: #3d5a80;
+      --feat-bg: #e8eef6;
+      --nn: #1d4e89;
+      --nn-bg: #dceaf8;
+      --out: #0b6e4f;
+      --out-bg: #dff3eb;
+      --neuron: #1d4e89;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    header {
+      background: linear-gradient(115deg, #1a334d, #0b6e4f);
+      color: #fff;
+      padding: 22px 18px 16px;
+    }
+    header h1 { margin: 0 0 4px; font-size: 1.35rem; }
+    header p { margin: 0; opacity: .88; font-size: .92rem; }
+    nav {
+      max-width: 1040px; margin: 12px auto 0; padding: 0 14px;
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    nav a {
+      background: #fff; color: var(--ink); text-decoration: none;
+      border: 1px solid #c5d0db; border-radius: 8px;
+      padding: 8px 12px; font-size: .88rem; font-weight: 600;
+    }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 14px 14px 56px; }
+    section {
+      background: var(--panel);
+      border: 1px solid #d3dce6;
+      border-radius: 12px;
+      padding: 16px 14px 20px;
+      margin-bottom: 16px;
+    }
+    h2 {
+      margin: 0 0 6px;
+      font-size: 1.12rem;
+      padding-bottom: 6px;
+      border-bottom: 2px solid;
+      display: inline-block;
+    }
+    #raw h2 { border-color: var(--raw); color: var(--raw); }
+    #shapes h2 { border-color: var(--nn); color: var(--nn); }
+    #example h2 { border-color: var(--out); color: var(--out); }
+    .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+    .hint {
+      background: #f6f8fa; border-left: 3px solid var(--line);
+      padding: 9px 11px; margin-bottom: 12px; color: var(--muted); font-size: .9rem;
+    }
+    .diagram { overflow-x: auto; }
+    svg { display: block; width: 100%; height: auto; max-width: 980px; margin: 0 auto; }
+    table.flow {
+      width: 100%; border-collapse: collapse; font-size: .86rem; margin-top: 8px;
+    }
+    table.flow th, table.flow td {
+      border: 1px solid #d3dce6; padding: 7px 9px; text-align: left; vertical-align: top;
+    }
+    table.flow th { background: #f0f4f8; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
+    .tag {
+      display: inline-block; font-size: .72rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 4px; margin-right: 4px;
+    }
+    .tag.raw { background: var(--raw-bg); color: var(--raw); }
+    .tag.feat { background: var(--feat-bg); color: var(--feat); }
+    .tag.nn { background: var(--nn-bg); color: var(--nn); }
+    .tag.out { background: var(--out-bg); color: var(--out); }
+    .dims { font-family: ui-monospace, Menlo, monospace; font-size: .84rem; color: var(--nn); font-weight: 650; }
+    .legend-n {
+      display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 0; font-size: .82rem; color: var(--muted);
+    }
+    .legend-n span::before {
+      content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+      background: var(--neuron); margin-right: 5px; vertical-align: -1px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Dal dato grezzo all’output — layer, neuroni, shape</h1>
+    <p>Percorso completo Dual-head TF · dimensioni reali dal codice · esempio numerico a fine pagina</p>
+  </header>
+  <nav>
+    <a href="#raw">1 · Dato grezzo → feature</a>
+    <a href="#shapes">2 · Layer e neuroni</a>
+    <a href="#example">3 · Esempio numerico</a>
+    <a href="CDM_flusso_dato_neuroni.pdf">PDF</a>
+  </nav>
+
+  <div class="wrap">
+    <!-- ========== RAW ========== -->
+    <section id="raw">
+      <h2>1 · Dato grezzo → riga di feature (as_of)</h2>
+      <p class="sub">Prima della rete non ci sono neuroni: solo aggregazioni causali fino ad <em>as_of</em> (ieri incluso).</p>
+      <div class="hint">
+        Una previsione = una riga <strong>PDV × SKU × as_of</strong>.
+        Lo storico dopo as_of non entra mai nelle feature (no leakage).
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 960 420" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="#a8b4c2"/>
+            </marker>
+          </defs>
+
+          <text x="20" y="22" fill="#8a5a2b" font-size="12" font-weight="700">FONTI GREZZE</text>
+
+          <rect x="16" y="36" width="150" height="70" rx="8" fill="#f7efe4" stroke="#8a5a2b"/>
+          <text x="91" y="58" text-anchor="middle" font-size="12" font-weight="650">fact_tickets / daily</text>
+          <text x="91" y="76" text-anchor="middle" font-size="10" fill="#5c6b7a">pezzi · prezzo · sconto</text>
+          <text x="91" y="92" text-anchor="middle" font-size="10" fill="#5c6b7a">data &lt; as_of</text>
+
+          <rect x="180" y="36" width="140" height="70" rx="8" fill="#f7efe4" stroke="#8a5a2b"/>
+          <text x="250" y="58" text-anchor="middle" font-size="12" font-weight="650">products.csv</text>
+          <text x="250" y="76" text-anchor="middle" font-size="10" fill="#5c6b7a">modello tessuto colore</text>
+          <text x="250" y="92" text-anchor="middle" font-size="10" fill="#5c6b7a">categoria · campagne</text>
+
+          <rect x="334" y="36" width="140" height="70" rx="8" fill="#f7efe4" stroke="#8a5a2b"/>
+          <text x="404" y="58" text-anchor="middle" font-size="12" font-weight="650">pdv_master</text>
+          <text x="404" y="76" text-anchor="middle" font-size="10" fill="#5c6b7a">mq · country · city</text>
+          <text x="404" y="92" text-anchor="middle" font-size="10" fill="#5c6b7a">apertura negozio</text>
+
+          <rect x="488" y="36" width="140" height="70" rx="8" fill="#f7efe4" stroke="#8a5a2b"/>
+          <text x="558" y="58" text-anchor="middle" font-size="12" font-weight="650">meteo</text>
+          <text x="558" y="76" text-anchor="middle" font-size="10" fill="#5c6b7a">temp · pioggia</text>
+          <text x="558" y="92" text-anchor="middle" font-size="10" fill="#5c6b7a">finestra 14g</text>
+
+          <rect x="642" y="36" width="140" height="70" rx="8" fill="#f7efe4" stroke="#8a5a2b"/>
+          <text x="712" y="58" text-anchor="middle" font-size="12" font-weight="650">calendar</text>
+          <text x="712" y="76" text-anchor="middle" font-size="10" fill="#5c6b7a">festivi · saldi</text>
+          <text x="712" y="92" text-anchor="middle" font-size="10" fill="#5c6b7a">mese · weekend</text>
+
+          <rect x="796" y="36" width="144" height="70" rx="8" fill="#f7efe4" stroke="#8a5a2b"/>
+          <text x="868" y="58" text-anchor="middle" font-size="12" font-weight="650">giacenze</text>
+          <text x="868" y="76" text-anchor="middle" font-size="10" fill="#5c6b7a">stock a as_of</text>
+          <text x="868" y="92" text-anchor="middle" font-size="10" fill="#5c6b7a">listino</text>
+
+          <line x1="91" y1="106" x2="480" y2="140" stroke="#a8b4c2"/>
+          <line x1="250" y1="106" x2="480" y2="140" stroke="#a8b4c2"/>
+          <line x1="404" y1="106" x2="480" y2="140" stroke="#a8b4c2"/>
+          <line x1="558" y1="106" x2="480" y2="140" stroke="#a8b4c2"/>
+          <line x1="712" y1="106" x2="480" y2="140" stroke="#a8b4c2"/>
+          <line x1="868" y1="106" x2="480" y2="140" stroke="#a8b4c2"/>
+          <line x1="480" y1="140" x2="480" y2="158" stroke="#a8b4c2" marker-end="url(#ar)"/>
+
+          <text x="20" y="172" fill="#3d5a80" font-size="12" font-weight="700">FEATURE ENGINEERING  (build_training_frames)</text>
+          <rect x="80" y="184" width="800" height="88" rx="8" fill="#e8eef6" stroke="#3d5a80" stroke-width="1.5"/>
+          <text x="480" y="208" text-anchor="middle" font-size="12" font-weight="650">Una riga per PDV × SKU × as_of</text>
+          <text x="480" y="228" text-anchor="middle" font-size="11" fill="#5c6b7a">run_rate 7/14/28 · trend · volatilità · giorni vendita · is_new_sku</text>
+          <text x="480" y="246" text-anchor="middle" font-size="11" fill="#5c6b7a">sconto · mq bande · profilo meteo SKU · calendario · sku_prior = RR14 × 15</text>
+          <text x="480" y="264" text-anchor="middle" font-size="11" fill="#5c6b7a">ID categorici (stringhe) restano etichette → poi mappati a interi (encoder)</text>
+
+          <line x1="480" y1="272" x2="480" y2="300" stroke="#a8b4c2" marker-end="url(#ar)"/>
+
+          <text x="20" y="316" fill="#1d4e89" font-size="12" font-weight="700">TENSORI IN INGRESSO ALLA RETE  (frame_to_tf_inputs)</text>
+          <rect x="40" y="328" width="200" height="72" rx="8" fill="#dceaf8" stroke="#1d4e89"/>
+          <text x="140" y="350" text-anchor="middle" font-size="11" font-weight="650">13 + 3 Embedding</text>
+          <text x="140" y="368" text-anchor="middle" font-size="10" fill="#5c6b7a">shape (1,) int32 ciascuno</text>
+          <text x="140" y="386" text-anchor="middle" font-size="10" fill="#5c6b7a">UNK = 0 se sconosciuto</text>
+
+          <rect x="260" y="328" width="200" height="72" rx="8" fill="#dceaf8" stroke="#1d4e89"/>
+          <text x="360" y="350" text-anchor="middle" font-size="11" font-weight="650">numeric</text>
+          <text x="360" y="368" text-anchor="middle" font-size="10" fill="#5c6b7a">shape (57,) float32</text>
+          <text x="360" y="386" text-anchor="middle" font-size="10" fill="#5c6b7a">(x − μ) / σ  train</text>
+
+          <rect x="480" y="328" width="200" height="72" rx="8" fill="#dceaf8" stroke="#1d4e89" stroke-width="2"/>
+          <text x="580" y="350" text-anchor="middle" font-size="11" font-weight="650">sku_prior</text>
+          <text x="580" y="368" text-anchor="middle" font-size="10" fill="#5c6b7a">shape (1,) float32</text>
+          <text x="580" y="386" text-anchor="middle" font-size="10" fill="#5c6b7a">ancora naive (RR×15)</text>
+
+          <rect x="700" y="328" width="220" height="72" rx="8" fill="#dff3eb" stroke="#0b6e4f"/>
+          <text x="810" y="350" text-anchor="middle" font-size="11" font-weight="650">batch = N righe</text>
+          <text x="810" y="368" text-anchor="middle" font-size="10" fill="#5c6b7a">ogni riga = 1 forecast</text>
+          <text x="810" y="386" text-anchor="middle" font-size="10" fill="#5c6b7a">shapes sotto: per 1 riga</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ========== SHAPES / NEURONS ========== -->
+    <section id="shapes">
+      <h2>2 · Struttura layer e neuroni (shape del tensore)</h2>
+      <p class="sub">Ogni cerchio ≈ unità/neurone del Dense. Le Embedding espandono un ID in un vettore denso.</p>
+      <div class="hint">
+        Concat embedding = <strong>81</strong> dim
+        (6+8+12+4+4+6+4+6+4+4+4+4+3 + mq4+mq4+weather4) + numeriche <strong>57</strong> = vettore <strong>138</strong>.
+        Poi Dense 256 → 256 → 128 → 64 → 1.
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 980 1100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="#a8b4c2"/>
+            </marker>
+          </defs>
+
+          <!-- Layer labels left -->
+          <text x="16" y="28" fill="#1d4e89" font-size="13" font-weight="700">LAYER</text>
+          <text x="200" y="28" fill="#1d4e89" font-size="13" font-weight="700">COSA SUCCEDE AL DATO</text>
+          <text x="720" y="28" fill="#1d4e89" font-size="13" font-weight="700">SHAPE / NEURONI</text>
+
+          <!-- L0 embeddings detail -->
+          <rect x="10" y="44" width="960" height="200" rx="10" fill="#f7fafc" stroke="#d3dce6"/>
+          <text x="24" y="68" fill="#1d4e89" font-size="12" font-weight="700">L0 · Embedding</text>
+          <text x="24" y="88" fill="#5c6b7a" font-size="11">ID intero → vettore continuo imparato</text>
+
+          <!-- mini emb chips -->
+          <g font-size="9" fill="#1a1f27">
+            <rect x="24" y="104" width="70" height="36" rx="5" fill="#dceaf8" stroke="#1d4e89"/><text x="59" y="120" text-anchor="middle" font-weight="650">sku</text><text x="59" y="134" text-anchor="middle" fill="#5c6b7a">→ 12</text>
+            <rect x="102" y="104" width="70" height="36" rx="5" fill="#dceaf8" stroke="#1d4e89"/><text x="137" y="120" text-anchor="middle" font-weight="650">pdv</text><text x="137" y="134" text-anchor="middle" fill="#5c6b7a">→ 8</text>
+            <rect x="180" y="104" width="78" height="36" rx="5" fill="#dceaf8" stroke="#1d4e89"/><text x="219" y="120" text-anchor="middle" font-weight="650">country</text><text x="219" y="134" text-anchor="middle" fill="#5c6b7a">→ 6</text>
+            <rect x="266" y="104" width="70" height="36" rx="5" fill="#e8eef6" stroke="#3d5a80"/><text x="301" y="120" text-anchor="middle" font-weight="650">cat</text><text x="301" y="134" text-anchor="middle" fill="#5c6b7a">→ 4</text>
+            <rect x="344" y="104" width="78" height="36" rx="5" fill="#e8eef6" stroke="#3d5a80"/><text x="383" y="120" text-anchor="middle" font-weight="650">modello</text><text x="383" y="134" text-anchor="middle" fill="#5c6b7a">→ 6</text>
+            <rect x="430" y="104" width="70" height="36" rx="5" fill="#e8eef6" stroke="#3d5a80"/><text x="465" y="120" text-anchor="middle" font-weight="650">colore</text><text x="465" y="134" text-anchor="middle" fill="#5c6b7a">→ 6</text>
+            <rect x="508" y="104" width="70" height="36" rx="5" fill="#e8eef6" stroke="#3d5a80"/><text x="543" y="120" text-anchor="middle" font-weight="650">tessuto</text><text x="543" y="134" text-anchor="middle" fill="#5c6b7a">→ 4</text>
+            <rect x="586" y="104" width="88" height="36" rx="5" fill="#e8eef6" stroke="#3d5a80"/><text x="630" y="120" text-anchor="middle" font-weight="650">+ 6 attr</text><text x="630" y="134" text-anchor="middle" fill="#5c6b7a">→ 23 tot</text>
+            <rect x="682" y="104" width="70" height="36" rx="5" fill="#e8eef6" stroke="#3d5a80"/><text x="717" y="120" text-anchor="middle" font-weight="650">mq×2</text><text x="717" y="134" text-anchor="middle" fill="#5c6b7a">→ 8</text>
+            <rect x="760" y="104" width="78" height="36" rx="5" fill="#e8eef6" stroke="#3d5a80"/><text x="799" y="120" text-anchor="middle" font-weight="650">weather</text><text x="799" y="134" text-anchor="middle" fill="#5c6b7a">→ 4</text>
+          </g>
+
+          <text x="24" y="168" fill="#5c6b7a" font-size="11">in parallelo: numeric (57) passa da BatchNorm → resta 57</text>
+          <text x="24" y="188" fill="#5c6b7a" font-size="11">sku_prior (1) non entra nel tronco: viaggia a destra fino alla Multiply</text>
+          <text x="780" y="188" fill="#1d4e89" font-size="14" font-weight="700">emb = 81</text>
+          <text x="780" y="208" fill="#1d4e89" font-size="12" font-weight="650">num = 57</text>
+          <text x="880" y="198" fill="#0b6e4f" font-size="13" font-weight="700">→ 138</text>
+
+          <!-- Concat -->
+          <line x1="490" y1="244" x2="490" y2="268" stroke="#a8b4c2" marker-end="url(#a2)"/>
+          <rect x="200" y="268" width="580" height="56" rx="8" fill="#dceaf8" stroke="#1d4e89" stroke-width="1.5"/>
+          <text x="490" y="290" text-anchor="middle" font-size="13" font-weight="650">L1 · Concatenate</text>
+          <text x="490" y="310" text-anchor="middle" font-size="11" fill="#5c6b7a">unisce i vettori in un unico array di attivazioni</text>
+          <text x="820" y="300" fill="#1d4e89" font-size="16" font-weight="700">138</text>
+
+          <!-- Neuron strip helper: draw N circles stylized -->
+          <!-- Residual 256 -->
+          <line x1="490" y1="324" x2="490" y2="348" stroke="#a8b4c2" marker-end="url(#a2)"/>
+          <rect x="80" y="348" width="820" height="130" rx="8" fill="#e8f1fb" stroke="#1d4e89" stroke-width="1.5"/>
+          <text x="100" y="372" fill="#1d4e89" font-size="13" font-weight="700">L2 · Residual block #1</text>
+          <text x="100" y="392" fill="#5c6b7a" font-size="11">Dense(256) → BN → ReLU → Drop(0.15) → Dense(256) → BN → Add(skip) → ReLU</text>
+          <text x="100" y="410" fill="#5c6b7a" font-size="11">ogni neurone:  weighted sum delle 138 (poi 256) attivazioni + bias · ReLU spegne i negativi</text>
+
+          <!-- neuron dots row 256 stylized -->
+          <g fill="#1d4e89">
+            <!-- show a representative strip -->
+            <text x="100" y="440" fill="#5c6b7a" font-size="10">256 neuroni (rappresentazione):</text>
+          </g>
+          <g fill="#1d4e89">
+            <circle cx="100" cy="456" r="3.2"/><circle cx="112" cy="456" r="3.2"/><circle cx="124" cy="456" r="3.2"/><circle cx="136" cy="456" r="3.2"/>
+            <circle cx="148" cy="456" r="3.2"/><circle cx="160" cy="456" r="3.2"/><circle cx="172" cy="456" r="3.2"/><circle cx="184" cy="456" r="3.2"/>
+            <circle cx="196" cy="456" r="3.2"/><circle cx="208" cy="456" r="3.2"/><circle cx="220" cy="456" r="3.2"/><circle cx="232" cy="456" r="3.2"/>
+            <circle cx="244" cy="456" r="3.2"/><circle cx="256" cy="456" r="3.2"/><circle cx="268" cy="456" r="3.2"/><circle cx="280" cy="456" r="3.2"/>
+            <circle cx="292" cy="456" r="3.2"/><circle cx="304" cy="456" r="3.2"/><circle cx="316" cy="456" r="3.2"/><circle cx="328" cy="456" r="3.2"/>
+            <circle cx="340" cy="456" r="3.2"/><circle cx="352" cy="456" r="3.2"/><circle cx="364" cy="456" r="3.2"/><circle cx="376" cy="456" r="3.2"/>
+            <circle cx="388" cy="456" r="3.2"/><circle cx="400" cy="456" r="3.2"/><circle cx="412" cy="456" r="3.2"/><circle cx="424" cy="456" r="3.2"/>
+            <text x="444" y="460" fill="#5c6b7a" font-size="11">… ×256</text>
+          </g>
+          <text x="820" y="420" fill="#1d4e89" font-size="18" font-weight="700">256</text>
+          <text x="820" y="440" fill="#5c6b7a" font-size="10">138 → 256</text>
+
+          <!-- Residual 256 #2 -->
+          <line x1="490" y1="478" x2="490" y2="500" stroke="#a8b4c2" marker-end="url(#a2)"/>
+          <rect x="80" y="500" width="820" height="88" rx="8" fill="#e8f1fb" stroke="#1d4e89" stroke-width="1.5"/>
+          <text x="100" y="524" fill="#1d4e89" font-size="13" font-weight="700">L3 · Residual block #2</text>
+          <text x="100" y="544" fill="#5c6b7a" font-size="11">stessa struttura · affina la rappresentazione (ancora 256 neuroni)</text>
+          <g fill="#1d4e89">
+            <circle cx="100" cy="566" r="3.2"/><circle cx="112" cy="566" r="3.2"/><circle cx="124" cy="566" r="3.2"/><circle cx="136" cy="566" r="3.2"/>
+            <circle cx="148" cy="566" r="3.2"/><circle cx="160" cy="566" r="3.2"/><circle cx="172" cy="566" r="3.2"/><circle cx="184" cy="566" r="3.2"/>
+            <circle cx="196" cy="566" r="3.2"/><circle cx="208" cy="566" r="3.2"/><circle cx="220" cy="566" r="3.2"/><circle cx="232" cy="566" r="3.2"/>
+            <text x="252" y="570" fill="#5c6b7a" font-size="11">… ×256</text>
+          </g>
+          <text x="820" y="548" fill="#1d4e89" font-size="18" font-weight="700">256</text>
+
+          <!-- Residual 128 -->
+          <line x1="490" y1="588" x2="490" y2="610" stroke="#a8b4c2" marker-end="url(#a2)"/>
+          <rect x="80" y="610" width="820" height="88" rx="8" fill="#e8f1fb" stroke="#1d4e89" stroke-width="1.5"/>
+          <text x="100" y="634" fill="#1d4e89" font-size="13" font-weight="700">L4 · Residual block #3</text>
+          <text x="100" y="654" fill="#5c6b7a" font-size="11">compressione 256 → 128 (shortcut proiettata con Dense senza bias)</text>
+          <g fill="#1d4e89">
+            <circle cx="100" cy="676" r="3.2"/><circle cx="112" cy="676" r="3.2"/><circle cx="124" cy="676" r="3.2"/><circle cx="136" cy="676" r="3.2"/>
+            <circle cx="148" cy="676" r="3.2"/><circle cx="160" cy="676" r="3.2"/><circle cx="172" cy="676" r="3.2"/><circle cx="184" cy="676" r="3.2"/>
+            <text x="204" y="680" fill="#5c6b7a" font-size="11">… ×128  = vettore condiviso x</text>
+          </g>
+          <text x="820" y="658" fill="#1d4e89" font-size="18" font-weight="700">128</text>
+
+          <!-- Fork -->
+          <line x1="490" y1="698" x2="490" y2="722" stroke="#a8b4c2"/>
+          <line x1="220" y1="722" x2="760" y2="722" stroke="#a8b4c2"/>
+          <line x1="220" y1="722" x2="220" y2="744" stroke="#a8b4c2" marker-end="url(#a2)"/>
+          <line x1="760" y1="722" x2="760" y2="744" stroke="#a8b4c2" marker-end="url(#a2)"/>
+
+          <!-- SKU head -->
+          <rect x="40" y="744" width="380" height="200" rx="8" fill="#dceaf8" stroke="#1d4e89" stroke-width="2"/>
+          <text x="230" y="768" text-anchor="middle" fill="#1d4e89" font-size="13" font-weight="700">L5a · Testa SKU</text>
+          <text x="230" y="788" text-anchor="middle" fill="#5c6b7a" font-size="11">Dense(64) ReLU + Drop(0.10)</text>
+          <g fill="#1d4e89">
+            <circle cx="140" cy="810" r="3.5"/><circle cx="154" cy="810" r="3.5"/><circle cx="168" cy="810" r="3.5"/><circle cx="182" cy="810" r="3.5"/>
+            <circle cx="196" cy="810" r="3.5"/><circle cx="210" cy="810" r="3.5"/><circle cx="224" cy="810" r="3.5"/><circle cx="238" cy="810" r="3.5"/>
+            <circle cx="252" cy="810" r="3.5"/><circle cx="266" cy="810" r="3.5"/><circle cx="280" cy="810" r="3.5"/><circle cx="294" cy="810" r="3.5"/>
+            <text x="318" y="814" fill="#5c6b7a" font-size="11">×64</text>
+          </g>
+          <text x="230" y="840" text-anchor="middle" fill="#5c6b7a" font-size="11">due uscite da 1 neurone ciascuna:</text>
+          <text x="140" y="866" text-anchor="middle" fill="#1d4e89" font-size="12" font-weight="650">sku_scale (1)</text>
+          <text x="140" y="882" text-anchor="middle" fill="#5c6b7a" font-size="10">Softplus ≥ 0</text>
+          <circle cx="140" cy="900" r="6" fill="#0b6e4f"/>
+          <text x="320" y="866" text-anchor="middle" fill="#1d4e89" font-size="12" font-weight="650">sku_delta (1)</text>
+          <text x="320" y="882" text-anchor="middle" fill="#5c6b7a" font-size="10">lineare (± pezzi)</text>
+          <circle cx="320" cy="900" r="6" fill="#1d4e89"/>
+          <text x="230" y="930" text-anchor="middle" fill="#0b6e4f" font-size="12" font-weight="700">× prior  →  Add  →  ReLU  = y_sku</text>
+
+          <!-- CAT head -->
+          <rect x="560" y="744" width="380" height="200" rx="8" fill="#eef2f7" stroke="#a8b4c2"/>
+          <text x="750" y="768" text-anchor="middle" fill="#5c6b7a" font-size="13" font-weight="700">L5b · Testa categoria</text>
+          <text x="750" y="788" text-anchor="middle" fill="#5c6b7a" font-size="11">stop_gradient(x) · non aggiorna tronco</text>
+          <text x="750" y="810" text-anchor="middle" fill="#5c6b7a" font-size="11">Dense(64) ReLU + Drop → Softplus(1)</text>
+          <g fill="#a8b4c2">
+            <circle cx="660" cy="836" r="3.5"/><circle cx="674" cy="836" r="3.5"/><circle cx="688" cy="836" r="3.5"/><circle cx="702" cy="836" r="3.5"/>
+            <circle cx="716" cy="836" r="3.5"/><circle cx="730" cy="836" r="3.5"/><circle cx="744" cy="836" r="3.5"/><circle cx="758" cy="836" r="3.5"/>
+            <text x="790" y="840" fill="#5c6b7a" font-size="11">×64 → 1</text>
+          </g>
+          <text x="750" y="880" text-anchor="middle" fill="#5c6b7a" font-size="12">y_cat  (solo training, peso 0.15)</text>
+          <circle cx="750" cy="910" r="6" fill="#a8b4c2"/>
+
+          <text x="490" y="980" text-anchor="middle" fill="#0b6e4f" font-size="14" font-weight="700">OUTPUT FINALE USATO IN PRODUZIONE:  y_sku  (scalare ≥ 0, pezzi su 15 giorni)</text>
+          <text x="490" y="1004" text-anchor="middle" fill="#5c6b7a" font-size="11">poi eventualmente mix con LightGBM / routing in base al prior di volume</text>
+          <text x="490" y="1036" text-anchor="middle" fill="#5c6b7a" font-size="11">Percorso shape:  IDs+57+1  →  81∥57=138  →  256  →  256  →  128  →  64  →  1 (+ prior)</text>
+        </svg>
+      </div>
+
+      <table class="flow">
+        <thead>
+          <tr>
+            <th>Step</th>
+            <th>Operazione</th>
+            <th>Neuroni / dim</th>
+            <th>Cosa cambia nel dato</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag raw">grezzo</span></td>
+            <td>scontrini, anagrafiche, meteo…</td>
+            <td class="dims">—</td>
+            <td>eventi grezzi nel tempo</td>
+          </tr>
+          <tr>
+            <td><span class="tag feat">feat</span></td>
+            <td>aggregazioni fino ad as_of</td>
+            <td class="dims">~80 colonne</td>
+            <td>1 riga PDV×SKU×as_of</td>
+          </tr>
+          <tr>
+            <td><span class="tag nn">L0</span></td>
+            <td>Embedding + BN numeric</td>
+            <td class="dims">81 + 57</td>
+            <td>ID → vettori; numeri normalizzati</td>
+          </tr>
+          <tr>
+            <td><span class="tag nn">L1</span></td>
+            <td>Concatenate</td>
+            <td class="dims">138</td>
+            <td>un unico vettore di attivazioni</td>
+          </tr>
+          <tr>
+            <td><span class="tag nn">L2–L4</span></td>
+            <td>3 residual Dense</td>
+            <td class="dims">256 → 256 → 128</td>
+            <td>feature non lineari + skip connection</td>
+          </tr>
+          <tr>
+            <td><span class="tag nn">L5a</span></td>
+            <td>Head SKU</td>
+            <td class="dims">64 → 1+1</td>
+            <td>scala e delta rispetto al prior</td>
+          </tr>
+          <tr>
+            <td><span class="tag out">out</span></td>
+            <td>ReLU(prior×scale + delta)</td>
+            <td class="dims">1</td>
+            <td>pezzi previsti ≥ 0</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ========== EXAMPLE ========== -->
+    <section id="example">
+      <h2>3 · Esempio numerico (didattico)</h2>
+      <p class="sub">Numeri inventati ma coerenti con le formule del codice — per vedere <em>come</em> il valore si trasforma.</p>
+      <div class="hint">
+        SKU “giacca blu” nel PDV di Milano · as_of = 18/09 · RR_14d = 0.8 pezzi/giorno → prior = 0.8 × 15 = <strong>12</strong>.
+      </div>
+      <table class="flow">
+        <thead>
+          <tr><th>Passo</th><th>Input</th><th>Trasformazione</th><th>Risultato</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Grezzo</td>
+            <td>11 pezzi venduti negli ultimi 14 giorni in quel PDV</td>
+            <td>11 / 14 ≈ 0.79 → run_rate_14d</td>
+            <td>RR ≈ 0.8</td>
+          </tr>
+          <tr>
+            <td>Prior</td>
+            <td>RR_14d = 0.8</td>
+            <td>× orizzonte 15</td>
+            <td><strong>sku_prior = 12</strong></td>
+          </tr>
+          <tr>
+            <td>Encoder</td>
+            <td>sku_id = "020H3…", pdv = "MI01", colore = "BLU"</td>
+            <td>map string→int (UNK=0 se nuovo)</td>
+            <td>es. sku=1842, pdv=37, colore=9</td>
+          </tr>
+          <tr>
+            <td>Embedding</td>
+            <td>sku=1842</td>
+            <td>lookup riga 1842 nella matrice Emb (vocab × 12)</td>
+            <td>vettore 12 float (es. [0.2, −0.1, …])</td>
+          </tr>
+          <tr>
+            <td>Numeric</td>
+            <td>RR, temp=18°, sconto=0, … (57 valori)</td>
+            <td>(x − μ_train) / σ_train + BatchNorm</td>
+            <td>vettore 57 ≈ N(0,1)</td>
+          </tr>
+          <tr>
+            <td>Concat</td>
+            <td>81 emb + 57 num</td>
+            <td>Concatenate</td>
+            <td>vettore <strong>138</strong></td>
+          </tr>
+          <tr>
+            <td>Tronco</td>
+            <td>138</td>
+            <td>Residual 256→256→128 (ReLU, skip)</td>
+            <td>vettore <strong>x</strong> ∈ ℝ¹²⁸</td>
+          </tr>
+          <tr>
+            <td>Head</td>
+            <td>x (128)</td>
+            <td>Dense 64 → scale Softplus, delta lineare</td>
+            <td>es. scale=1.15 · delta=+1.2</td>
+          </tr>
+          <tr>
+            <td>Output</td>
+            <td>prior=12, scale=1.15, delta=+1.2</td>
+            <td>ReLU(12 × 1.15 + 1.2) = ReLU(15.0)</td>
+            <td><strong>y_sku = 15.0 pezzi / 15 gg</strong></td>
+          </tr>
+          <tr>
+            <td>Lettura</td>
+            <td colspan="3">
+              La rete non “indovina da zero”: parte da 12 (ritmo recente), alza del 15% (meteo/profilo SKU)
+              e aggiunge +1.2 pezzi (promo/contesto). All’init: scale≈1, delta=0 → uguale al naive.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="legend-n" style="margin-top:14px">
+        <span>neurone Dense</span>
+        &nbsp;·&nbsp; ReLU spegne i negativi &nbsp;·&nbsp; Softplus tiene la scala ≥ 0 &nbsp;·&nbsp; Dropout spegne a caso in training
+      </p>
+    </section>
+  </div>
+</body>
+</html>

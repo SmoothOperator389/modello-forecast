@@ -106,8 +106,11 @@ def _store_hour_temps_from_daily(daily: pd.DataFrame) -> dict[str, float]:
 def _store_hour_temps_from_api(country: str, city: str, start: date, end: date, daily: pd.DataFrame) -> dict[str, float]:
     from production.connectors.weather_api import fetch_hourly_weather
 
-    h = fetch_hourly_weather(city, start, end, country)
-    if h.empty:
+    try:
+        h = fetch_hourly_weather(city, start, end, country)
+    except Exception:
+        return _store_hour_temps_from_daily(daily)
+    if h is None or h.empty:
         return _store_hour_temps_from_daily(daily)
     shop = h[(h["ora"] >= 10) & (h["ora"] < 20)]
     pm = h[(h["ora"] >= 14) & (h["ora"] < 18)]

@@ -5,5 +5,6 @@ lightgbm>=4.0
 # Pin TF: 2.17+ often breaks on Mac; prefer Docker (scripts/run_train_docker.sh) until Python 3.11+ venv works
 tensorflow>=2.15,<2.17
 tensorflow-metal==1.2.0; sys_platform == "darwin" and platform_machine == "arm64"
+holidays>=0.40
 # pyarrow opzionale — testing usa CSV per evitare crash TF+parquet su Mac
 

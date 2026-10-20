@@ -53,3 +53,19 @@ mlruns/
 .cache/
 tmp/
 temp/
+
+# Artefatti modello / cache meteo (GB; non versionare)
+production/artifacts/real/
+production/artifacts/weather_cache/
+*.joblib
+
+# Export BI / holdout pesanti
+reports/data/holdout/
+reports/data/bi_predictions.json
+reports/data/bi_predictions_forward.json
+reports/data/bi_rollups.json
+
+# Backup / excel locali
+*.xlsx
+data/real/products_stub_backup.csv
+data/manual/DNA_SKU.xlsx

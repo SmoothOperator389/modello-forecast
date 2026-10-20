@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Previsioni 15gg — Strumento CDM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --ink:#1a2332; --muted:#5c6b7a; --line:#d8e0e8; --paper:#f7f5f1; --card:#fff;
+  --accent:#0d6e6e; --accent-soft:#e6f3f3; --good:#1f7a4c; --good-bg:#e8f5ee;
+  --warn:#9a6700; --warn-bg:#fff6e0; --bad:#b42318; --sidebar:#12202a;
+}
+* { box-sizing:border-box; }
+body { margin:0; font-family:"IBM Plex Sans",system-ui,sans-serif; color:var(--ink); background:var(--paper); }
+.app { display:grid; grid-template-columns:300px 1fr; min-height:100vh; }
+.sidebar {
+  background:var(--sidebar); color:#e8eef2; padding:20px 16px; position:sticky; top:0; height:100vh; overflow:auto;
+}
+.sidebar h1 { font-family:"IBM Plex Serif",Georgia,serif; font-size:1.2rem; margin:0 0 4px; font-weight:600; }
+.sidebar .sub { color:#9db0bc; font-size:0.8rem; margin:0 0 16px; line-height:1.4; }
+.sidebar label { display:block; font-size:0.7rem; text-transform:uppercase; letter-spacing:.04em; color:#9db0bc; margin:12px 0 5px; font-weight:600; }
+.sidebar input, .sidebar select {
+  width:100%; padding:8px 10px; border-radius:8px; border:1px solid #2a3d4a; background:#1a2c38; color:#e8eef2; font:inherit; font-size:0.88rem;
+}
+.sidebar input::placeholder { color:#7a8f9c; }
+.btn {
+  width:100%; margin-top:10px; padding:9px 12px; border-radius:8px; border:1px solid #2a3d4a;
+  background:#1a2c38; color:#e8eef2; cursor:pointer; font:inherit; font-size:0.85rem; font-weight:500;
+}
+.btn:hover { border-color:var(--accent); }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.main { padding:18px 22px 40px; overflow:hidden; }
+.top { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:14px; }
+.tabs { display:flex; gap:6px; flex-wrap:wrap; }
+.tab {
+  padding:8px 12px; border-radius:8px; border:1px solid var(--line); background:var(--card);
+  cursor:pointer; font:inherit; font-size:0.85rem; font-weight:500;
+}
+.tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+.kpis { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+@media (max-width:1100px){ .kpis{grid-template-columns:repeat(3,1fr);} .app{grid-template-columns:1fr;} .sidebar{height:auto;position:static;} }
+.kpi { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+.kpi .lbl { font-size:0.7rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:600; }
+.kpi .val { font-size:1.35rem; font-weight:700; margin-top:2px; font-variant-numeric:tabular-nums; }
+.kpi .hint { font-size:0.75rem; color:var(--muted); }
+.panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+.panel h2 { margin:0 0 4px; font-size:1rem; font-family:"IBM Plex Serif",Georgia,serif; }
+.panel .lead { margin:0 0 12px; color:var(--muted); font-size:0.86rem; }
+.hidden { display:none !important; }
+.table-wrap { max-height:560px; overflow:auto; border:1px solid var(--line); border-radius:10px; }
+table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+th, td { padding:8px 8px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; }
+th { position:sticky; top:0; background:#faf9f7; color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:.03em; cursor:pointer; user-select:none; z-index:1; }
+td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+tr:hover td { background:#f3f7f7; }
+tr.sel td { background:var(--accent-soft); }
+.badge { display:inline-block; padding:2px 7px; border-radius:999px; font-size:0.7rem; font-weight:600; }
+.badge-ok { background:var(--good-bg); color:var(--good); }
+.badge-warn { background:var(--warn-bg); color:var(--warn); }
+.badge-bad { background:#fdecea; color:var(--bad); }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:900px){ .grid2{grid-template-columns:1fr;} }
+.status { font-size:0.85rem; color:var(--muted); }
+.status.err { color:var(--bad); }
+.status.ok { color:var(--good); }
+.detail { border-left:3px solid var(--accent); padding:8px 0 8px 12px; margin-top:8px; font-size:0.88rem; }
+.toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; color:var(--muted); font-size:0.82rem; }
+.drivers { list-style: none; padding: 0; margin: 8px 0 0; }
+.drivers li { padding: 4px 0; border-bottom: 1px dashed var(--line); font-size: 0.84rem; }
+.drivers .up { color: var(--good); font-weight: 700; margin-right: 6px; }
+.drivers .down { color: var(--bad); font-weight: 700; margin-right: 6px; }
+.btn-why {
+  padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--line);
+  background: #fff; cursor: pointer; color: var(--accent); font-weight: 600; white-space: nowrap;
+}
+.btn-why.active { background: var(--accent-soft); border-color: var(--accent); }
+tr.why-expand td { background: #f3f7f7; padding: 12px 14px; border-bottom: 2px solid #9ad0d0; white-space: normal; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <h1>Previsioni CDM</h1>
+    <p class="sub" id="meta-sub">Caricamento…</p>
+
+    <label for="f-mode">Modalità</label>
+    <select id="f-mode">
+      <option value="forward">Operativo (futuro)</option>
+      <option value="holdout">Storico (prev. vs reale)</option>
+      <option value="skuwin">Analisi SKU (reale + 15g/1m/2m/3m)</option>
+    </select>
+
+    <div id="holdout-box" class="hidden">
+      <label for="f-from">Dal (inizio periodo reale)</label>
+      <input id="f-from" type="date"/>
+
+      <label for="f-to">Al (fine periodo reale)</label>
+      <input id="f-to" type="date"/>
+
+      <label for="f-holdout-asof">as_of previsione (giornaliero)</label>
+      <input id="f-holdout-asof" type="date"/>
+      <p class="sub" style="margin-top:4px;font-size:0.7rem">Vuoto = giorno prima di Dal. Qualsiasi giorno nello storico.</p>
+
+      <button class="btn primary" id="btn-holdout-load" type="button">Carica prev. vs reale</button>
+      <p class="sub" style="margin-top:8px;font-size:0.72rem" id="holdout-hint">
+        Scegli liberamente le date (anche 2025). La previsione usa l’as_of sample più vicino ≤ giorno prima di «Dal»,
+        poi scala all’ampiezza della forbice; il reale è il venduto tra Dal e Al.
+      </p>
+      <details style="margin-top:8px">
+        <summary style="color:#9db0bc;font-size:0.75rem;cursor:pointer">Snapshot già generati (opzionale)</summary>
+        <label for="f-asof" style="margin-top:8px">Oppure apri uno snapshot</label>
+        <select id="f-asof"><option value="">—</option></select>
+      </details>
+    </div>
+
+    <div id="skuwin-box" class="hidden">
+      <label for="f-skuwin-q">SKU / modello (es. 020H3LI0KU)</label>
+      <input id="f-skuwin-q" type="search" placeholder="020H3LI0KU"/>
+
+      <label for="f-skuwin-from">Dal (vendite reali)</label>
+      <input id="f-skuwin-from" type="date"/>
+
+      <label for="f-skuwin-to">Al (vendite reali)</label>
+      <input id="f-skuwin-to" type="date"/>
+
+      <label for="f-skuwin-asof">as_of previsione (giornaliero)</label>
+      <input id="f-skuwin-asof" type="date"/>
+      <p class="sub" style="margin-top:4px;font-size:0.7rem">Vuoto = fine forbice (Al). Puoi mettere qualsiasi giorno.</p>
+
+      <button class="btn primary" id="btn-skuwin-load" type="button">Carica reale + forecast</button>
+      <p class="sub" style="margin-top:8px;font-size:0.72rem" id="skuwin-hint">
+        1) Venduto reale nella forbice. 2) Forecast dall’as_of: 15g e 3m nativi;
+        1m/2m dal ritmo a 15g (non più 90÷3). Prima volta su giorno nuovo: 1–3 min.
+      </p>
+    </div>
+
+    <label for="f-search">Cerca SKU / modtescol / negozio</label>
+    <input id="f-search" type="search" placeholder="es. 020H3LILI0KU, MAGLI, T76…"/>
+
+    <label for="f-country">Paese (Country)</label>
+    <select id="f-country"><option value="">Tutti i paesi</option></select>
+
+    <label for="f-modtescol">Modtescol = modello+tessuto+colore</label>
+    <input id="f-modtescol" type="search" list="dl-modtescol" placeholder="es. 020H3LILI0KU"/>
+    <datalist id="dl-modtescol"></datalist>
+    <p class="sub" style="margin-top:6px;font-size:0.72rem">No taglia. Accetta anche modello+colore (es. 020H3LI0KU).</p>
+
+    <label for="f-pdv">Negozio (PDV)</label>
+    <select id="f-pdv"><option value="">Tutti</option></select>
+
+    <label for="f-tipo">Tipologia</label>
+    <select id="f-tipo"><option value="">Tutte</option></select>
+
+    <label for="f-classe">Classe</label>
+    <select id="f-classe"><option value="">Tutte</option></select>
+
+    <label for="f-sku">SKU esatto (con taglia)</label>
+    <input id="f-sku" type="search" placeholder="codice SKU completo"/>
+
+    <label for="f-minqty">Qty minima suggerita (P50)</label>
+    <input id="f-minqty" type="number" min="0" step="1" value="0"/>
+
+    <label for="f-only-err">Solo |errore| ≥</label>
+    <input id="f-only-err" type="number" min="0" step="1" value="0"/>
+
+    <button class="btn primary" id="btn-apply">Applica filtri</button>
+    <button class="btn" id="btn-reset">Reset</button>
+    <button class="btn" id="btn-export">Esporta CSV filtrato</button>
+    <p class="sub" style="margin-top:14px">
+      Briefing KPI:
+      <a href="bi_cdm_forecast.html" style="color:#7fd4d4">bi_cdm_forecast.html</a>
+    </p>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="overview">Sintesi</button>
+        <button class="tab" data-tab="modtescol">Modtescol</button>
+        <button class="tab" data-tab="rows">Previsioni SKU×PDV</button>
+        <button class="tab" data-tab="sku">Scheda SKU</button>
+        <button class="tab" data-tab="prio">Da riassortire</button>
+      </div>
+      <div class="status" id="load-status">…</div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <section id="tab-overview" class="tab-panel">
+      <div class="grid2">
+        <div class="panel">
+          <h2>Quanto si prevede di vendere (per paese)</h2>
+          <p class="lead">Somma 15gg e 3 mesi sul filtro attivo. Clicca un paese per filtrare.</p>
+          <div class="table-wrap" style="max-height:280px">
+            <table id="tbl-country-agg"><thead></thead><tbody></tbody></table>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Top modtescol (modello+tessuto+colore)</h2>
+          <p class="lead">Senza taglia — es. <strong>020H3LILI0KU</strong> = 020H3LI · LI · 0KU. Clic = dettaglio.</p>
+          <div class="table-wrap" style="max-height:280px">
+            <table id="tbl-modtescol-top"><thead></thead><tbody></tbody></table>
+          </div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="panel">
+          <h2>Cosa valutare in riassortimento (per tipologia)</h2>
+          <p class="lead">Somma delle <strong>qty suggerite</strong> (pezzi da mandare, già netto giacenza).</p>
+          <div class="table-wrap" style="max-height:280px">
+            <table id="tbl-tipo-agg"><thead></thead><tbody></tbody></table>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Per negozio</h2>
+          <p class="lead">Clicca un negozio per filtrare. Prev = domanda attesa · Qty = da spedire.</p>
+          <div class="table-wrap" style="max-height:280px">
+            <table id="tbl-pdv"><thead></thead><tbody></tbody></table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-modtescol" class="tab-panel hidden">
+      <div class="panel">
+        <h2>Previsioni per modtescol</h2>
+        <p class="lead">
+          Aggregazione <strong>senza taglia</strong>: <strong>modello + tessuto + colore</strong>
+          (es. 020H3LI · LI · 0KU → <code>020H3LILI0KU</code>).
+          Colonne 15gg e <strong>3 mesi</strong>. Filtro Paese attivo. Clic = drill-down.
+        </p>
+        <div class="toolbar">
+          <span id="modtescol-count">—</span>
+          <span>· ordinabile · export CSV usa i filtri correnti</span>
+        </div>
+        <div class="table-wrap" style="max-height:520px">
+          <table id="tbl-modtescol"><thead></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <div class="panel" id="modtescol-detail-panel">
+        <h2>Dettaglio modtescol selezionato</h2>
+        <p class="lead" id="modtescol-detail-lead">Seleziona una riga sopra (o filtra da sidebar).</p>
+        <div class="kpis" id="modtescol-kpis" style="grid-template-columns:repeat(4,1fr)"></div>
+        <div class="grid2" style="margin-top:8px">
+          <div>
+            <h3 style="font-size:0.95rem;margin:0 0 6px">Per paese</h3>
+            <div class="table-wrap" style="max-height:260px">
+              <table id="tbl-mt-country"><thead></thead><tbody></tbody></table>
+            </div>
+          </div>
+          <div>
+            <h3 style="font-size:0.95rem;margin:0 0 6px">Per negozio</h3>
+            <div class="table-wrap" style="max-height:260px">
+              <table id="tbl-mt-pdv"><thead></thead><tbody></tbody></table>
+            </div>
+          </div>
+        </div>
+        <h3 style="font-size:0.95rem;margin:14px 0 6px">Per taglia (SKU)</h3>
+        <div class="table-wrap" style="max-height:280px">
+          <table id="tbl-mt-sku"><thead></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-rows" class="tab-panel hidden">
+      <div class="panel">
+        <h2>Previsioni SKU × negozio</h2>
+        <p class="lead" id="rows-lead">Domanda attesa prossimi 15gg · P80 = buffer servizio · qty = pezzi da valutare in riassortimento</p>
+        <div class="toolbar"><span id="rows-count">—</span><span>· click riga = scheda SKU · <strong>Perché</strong> = motivazione</span></div>
+        <div class="table-wrap">
+          <table id="tbl-rows">
+            <thead></thead><tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-sku" class="tab-panel hidden">
+      <div class="panel">
+        <h2>Scheda SKU — tutti i negozi</h2>
+        <p class="lead">Seleziona uno SKU dai filtri o cliccando una riga. Mostra previsione per paese/negozio.</p>
+        <div class="toolbar">
+          <label>SKU <input id="sku-pick" style="margin-left:6px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;min-width:220px"/></label>
+          <button class="btn" id="btn-sku-go" style="width:auto;margin:0">Apri</button>
+          <span id="sku-meta"></span>
+        </div>
+        <div class="kpis" id="sku-kpis" style="grid-template-columns:repeat(4,1fr)"></div>
+        <div class="panel" style="margin:12px 0;box-shadow:none;padding:0;border:none">
+          <h3 style="font-size:0.95rem;margin:0 0 4px">Dove conviene intervenire</h3>
+          <p class="lead" style="margin-bottom:8px">
+            Stesso articolo, negozio per negozio. <strong>Prev. 15gg</strong> = pezzi che si prevede di vendere.
+            <strong>Qty</strong> = pezzi da valutare in spedizione (già tolto lo stock).
+          </p>
+          <div class="table-wrap" style="max-height:280px">
+            <table id="tbl-sku-rank"><thead></thead><tbody></tbody></table>
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top:12px;max-height:360px">
+          <table id="tbl-sku"><thead></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-prio" class="tab-panel hidden">
+      <div class="panel">
+        <h2>Da riassortire (priorità)</h2>
+        <p class="lead">Ordinate per qty suggerita (P50). Review CDM sui casi con fabbisogno &gt; 0.</p>
+        <div class="toolbar"><span id="prio-count">—</span></div>
+        <div class="table-wrap">
+          <table id="tbl-prio"><thead></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const COL = {};
+let ALL = [];
+let FILTERED = [];
+let META = {};
+let ROLL = null;
+let HOLDOUT_INDEX = null;
+let FORWARD_CACHE = null; // {pred, roll} forward operativo
+let sortKey = 'qty';
+let sortDir = -1;
+let selectedSku = '';
+let selectedModtescol = '';
+let mtSortKey = 'pred90';
+let mtSortDir = -1;
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $('load-status');
+
+/** ISO YYYY-MM-DD (o Date) → gg/mm/aaaa per UI italiana. */
+function fmtDateIT(d) {
+  if (d == null || d === '') return '—';
+  if (d instanceof Date && !Number.isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
+  const s = String(d).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return s;
+}
+/** Date locale → YYYY-MM-DD per input[type=date] / API. */
+function toISODateLocal(d) {
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function modtescolOf(r) {
+  const direct = v(r, 'modtescol');
+  if (direct != null && direct !== '' && direct !== 'null') return String(direct);
+  return `${v(r,'modello') || ''}${v(r,'tessuto') || ''}${v(r,'colore') || ''}`;
+}
+function modtescolLabel(rOrKey, r) {
+  if (r) {
+    return `${v(r,'modello') || '—'} · ${v(r,'tessuto') || '—'} · ${v(r,'colore') || '—'}`;
+  }
+  return String(rOrKey || '');
+}
+/** Match codice pieno M+T+C oppure alias M+C (senza tessuto). */
+function modtescolMatch(r, query) {
+  const q = String(query || '').trim().toUpperCase();
+  if (!q) return true;
+  const full = modtescolOf(r).toUpperCase();
+  if (full === q || full.includes(q)) return true;
+  const mc = `${v(r,'modello') || ''}${v(r,'colore') || ''}`.toUpperCase();
+  return mc === q || mc.includes(q);
+}
+/** Risolve alias M+C (es. 020H3LI0KU) → chiave canonica M+T+C (020H3LILI0KU). */
+function resolveModtescolKey(query) {
+  const q = String(query || '').trim().toUpperCase();
+  if (!q || !ALL.length) return q;
+  const hit = ALL.find(r => modtescolOf(r).toUpperCase() === q);
+  if (hit) return modtescolOf(hit);
+  const alias = ALL.find(r => modtescolMatch(r, q));
+  return alias ? modtescolOf(alias) : q;
+}
+
+function setStatus(msg, cls='') {
+  statusEl.textContent = msg;
+  statusEl.className = 'status ' + cls;
+}
+
+function applyPayload(pred, roll) {
+  Object.keys(COL).forEach(k => delete COL[k]);
+  META = pred.meta || {};
+  ROLL = roll;
+  pred.cols.forEach((c, i) => COL[c] = i);
+  ALL = pred.rows;
+  const h90 = META.horizon_90_end
+    ? `<br>3 mesi: <strong>${fmtDateIT(META.horizon_90_start || META.horizon_start)}</strong> → <strong>${fmtDateIT(META.horizon_90_end)}</strong>`
+    : '';
+  if (META.mode === 'sku_window') {
+    const hz = META.horizons || {};
+    const act = META.actuals || {};
+    $('meta-sub').innerHTML =
+      `<strong>ANALISI SKU</strong> <code>${META.query || ''}</code><br>`
+      + `Reale <strong>${fmtDateIT(act.from || META.range_from)}</strong> → <strong>${fmtDateIT(act.to || META.range_to)}</strong>`
+      + ` · <strong>${(act.sum_y ?? 0).toLocaleString('it')}</strong> pz<br>`
+      + `as_of forecast <strong>${fmtDateIT(META.as_of)}</strong>`
+      + (META.as_of_note ? `<br><span style="opacity:.85">${META.as_of_note}</span>` : '')
+      + `<br>15g ${fmtDateIT(hz.d15 && hz.d15.start)}→${fmtDateIT(hz.d15 && hz.d15.end)}`
+      + ` · 1m →${fmtDateIT(hz.d30 && hz.d30.end)}`
+      + ` · 2m →${fmtDateIT(hz.d60 && hz.d60.end)}`
+      + ` · 3m →${fmtDateIT(hz.d90 && hz.d90.end)}`;
+  } else if (META.mode === 'holdout') {
+    const m15 = META.metrics_15 || {};
+    const m90 = META.metrics_90;
+    const rangeBit = (META.range_from && META.range_to)
+      ? `Forbice <strong>${fmtDateIT(META.range_from)}</strong> → <strong>${fmtDateIT(META.range_to)}</strong><br>`
+      : '';
+    $('meta-sub').innerHTML =
+      `<strong>STORICO</strong> as_of <strong>${fmtDateIT(META.as_of)}</strong><br>`
+      + rangeBit
+      + `15gg: <strong>${fmtDateIT(META.horizon_start)}</strong> → <strong>${fmtDateIT(META.horizon_end)}</strong>`
+      + ` · MAE ${META.mae ?? m15.mae ?? '—'} · wMAPE ${META.wmape ?? m15.wmape ?? '—'}%`
+      + (m90 ? `<br>3 mesi → <strong>${fmtDateIT(META.horizon_90_end)}</strong> · MAE ${m90.mae} · wMAPE ${m90.wmape}%` : '')
+      + `<br>${META.n_pdv} PDV · ${META.n_sku.toLocaleString('it')} SKU · confronto vs reale`;
+  } else {
+    $('meta-sub').innerHTML =
+      `<strong>OPERATIVO</strong> as_of ${fmtDateIT(META.as_of)}<br>15gg: <strong>${fmtDateIT(META.horizon_start)}</strong> → <strong>${fmtDateIT(META.horizon_end)}</strong>${h90}<br>`
+      + `${META.n_pdv} PDV · ${META.n_sku.toLocaleString('it')} SKU · modtescol = modello+tessuto+colore`;
+  }
+  const errLab = document.querySelector('label[for="f-only-err"]');
+  const showErr = META.mode === 'holdout' || META.mode === 'sku_window';
+  if (errLab) errLab.style.display = showErr ? '' : 'none';
+  $('f-only-err').style.display = showErr ? '' : 'none';
+  fillFilterOptions();
+  applyFilters();
+}
+
+function buildRollFromRows(pred) {
+  // rollups minimi per filtri quando carichiamo uno snapshot holdout
+  const cols = pred.cols;
+  const idx = {};
+  cols.forEach((c, i) => idx[c] = i);
+  const countries = new Set();
+  const tipologie = new Set();
+  const classi = new Set();
+  const modtescols = new Set();
+  const pdvMap = new Map();
+  pred.rows.forEach(r => {
+    countries.add(r[idx.country]);
+    tipologie.add(r[idx.tipologia]);
+    classi.add(r[idx.classe]);
+    modtescols.add(r[idx.modtescol] || `${r[idx.modello]||''}${r[idx.tessuto]||''}${r[idx.colore]||''}`);
+    const pid = r[idx.pdv_id];
+    if (!pdvMap.has(pid)) {
+      pdvMap.set(pid, {
+        pdv_id: pid, store: r[idx.store], city: r[idx.city], country: r[idx.country],
+        label: `${pid} · ${r[idx.store]} (${r[idx.city]}, ${r[idx.country]})`,
+      });
+    }
+  });
+  return {
+    meta: pred.meta,
+    filters: {
+      countries: [...countries].sort(),
+      tipologie: [...tipologie].sort(),
+      classi: [...classi].sort(),
+      modtescols: [...modtescols].sort(),
+      pdvs: [...pdvMap.values()].sort((a,b) => (a.country+a.city+a.pdv_id).localeCompare(b.country+b.city+b.pdv_id)),
+    },
+  };
+}
+
+async function loadForward() {
+  const [predRes, rollRes] = await Promise.all([
+    fetch('data/bi_predictions.json'),
+    fetch('data/bi_rollups.json'),
+  ]);
+  if (!predRes.ok || !rollRes.ok) throw new Error('HTTP ' + predRes.status + '/' + rollRes.status);
+  const pred = await predRes.json();
+  const roll = await rollRes.json();
+  FORWARD_CACHE = { pred, roll };
+  applyPayload(pred, roll);
+  setStatus('Operativo: previsioni future', 'ok');
+}
+
+let HOLDOUT_META = null;
+
+async function loadHoldoutMeta() {
+  const res = await fetch('/api/holdout/meta');
+  if (!res.ok) throw new Error('API holdout non disponibile — riavvia reports/serve_bi.py');
+  const js = await res.json();
+  if (!js.ok) throw new Error(js.error || 'meta holdout fallita');
+  HOLDOUT_META = js;
+  const minD = js.min_date || '2025-06-01';
+  const maxD = js.max_date || '2026-08-18';
+  $('f-from').min = minD;
+  $('f-from').max = maxD;
+  $('f-to').min = minD;
+  $('f-to').max = maxD;
+  if (!$('f-from').value) {
+    // default: ultime 2 settimane con reale
+    const max = new Date(maxD + 'T00:00:00');
+    const to = max;
+    const from = new Date(max); from.setDate(from.getDate() - 14);
+    $('f-to').value = maxD;
+    $('f-from').value = toISODateLocal(from);
+  }
+  $('holdout-hint').textContent =
+    `Date liberamente selezionabili dal ${fmtDateIT(minD)} al ${fmtDateIT(maxD)} (anche 2025). ` +
+    `as_of agganciato al sample più vicino ≤ giorno prima di «Dal». Prima richiesta può richiedere 30–60s.`;
+  $('f-skuwin-from').min = minD;
+  $('f-skuwin-from').max = maxD;
+  $('f-skuwin-to').min = minD;
+  $('f-skuwin-to').max = maxD;
+  if (!$('f-skuwin-from').value) {
+    $('f-skuwin-from').value = '2025-09-02';
+    $('f-skuwin-to').value = '2025-09-17';
+  }
+  if (!$('f-skuwin-q').value) $('f-skuwin-q').value = '020H3LI0KU';
+  const minA = js.min_as_of || minD;
+  const maxA = js.max_as_of || maxD;
+  ['f-holdout-asof', 'f-skuwin-asof'].forEach(id => {
+    $(id).min = minA;
+    $(id).max = maxA;
+  });
+  $('skuwin-hint').textContent =
+    `as_of giornaliero (${fmtDateIT(minA)}–${fmtDateIT(maxA)}). ` +
+    `Vuoto = Al. Orizzonti 15g/1m/2m/3m. Giorni non in griglia 14gg: calcolo on-demand (più lento la 1ª volta).`;
+}
+
+async function loadHoldoutIndex() {
+  try {
+    const res = await fetch('data/holdout/index.json');
+    if (!res.ok) { HOLDOUT_INDEX = { snapshots: [] }; return; }
+    HOLDOUT_INDEX = await res.json();
+  } catch {
+    HOLDOUT_INDEX = { snapshots: [] };
+  }
+  const sel = $('f-asof');
+  sel.innerHTML = '<option value="">—</option>';
+  const snaps = (HOLDOUT_INDEX.snapshots || []).slice().reverse();
+  snaps.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.file;
+    const hs = s.horizon_start ? fmtDateIT(s.horizon_start) : '';
+    const he = s.horizon_end ? fmtDateIT(s.horizon_end) : '';
+    o.textContent = s.as_of
+      ? `${fmtDateIT(s.as_of)}${hs && he ? ` → +15gg (${hs}…${he})` : ''}${s.has_y90 ? ' · +90gg' : ''}`
+      : (s.label || s.file);
+    sel.appendChild(o);
+  });
+}
+
+async function loadHoldoutFile(file) {
+  setStatus('Carico snapshot storico…');
+  const res = await fetch('data/holdout/' + file);
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' su ' + file);
+  const pred = await res.json();
+  applyPayload(pred, buildRollFromRows(pred));
+  setStatus('Storico: snapshot caricato', 'ok');
+}
+
+function warnIfSearchEmpty() {
+  const q = ($('f-search').value || '').trim();
+  const mt = ($('f-modtescol').value || '').trim();
+  const sku = ($('f-sku').value || '').trim();
+  if (!q && !mt && !sku) return '';
+  if (FILTERED.length) return '';
+  const asOf = META.as_of ? fmtDateIT(META.as_of) : '—';
+  return (
+    `Nessuna riga per «${q || mt || sku}» all'as_of ${asOf}. ` +
+    `Articoli nuovi spesso mancano finché non entrano nel sample successivo (es. 020H3LI0KU → dal 07/09/2025: metti Dal ≥ 08/09). ` +
+    `Per il check settimana 36 apri reports/cdm_check_020H3LI0KU_w36.html`
+  );
+}
+
+async function loadHoldoutRange() {
+  const dFrom = $('f-from').value;
+  const dTo = $('f-to').value;
+  if (!dFrom || !dTo) throw new Error('Seleziona entrambe le date Dal e Al');
+  if (dTo < dFrom) throw new Error('«Al» deve essere ≥ «Dal»');
+  setStatus('Calcolo previsione vs reale (può richiedere fino a ~1 min)…');
+  $('btn-holdout-load').disabled = true;
+  try {
+    const asOf = $('f-holdout-asof').value;
+    let url = `/api/holdout/range?from=${encodeURIComponent(dFrom)}&to=${encodeURIComponent(dTo)}`;
+    if (asOf) url += `&as_of=${encodeURIComponent(asOf)}`;
+    const res = await fetch(url);
+    const js = await res.json();
+    if (!res.ok || !js.ok) throw new Error((js && js.error) || ('HTTP ' + res.status));
+    applyPayload(js.data, buildRollFromRows(js.data));
+    const m = js.data.meta || {};
+    applyFilters();
+    const emptyMsg = warnIfSearchEmpty();
+    if (emptyMsg) setStatus(emptyMsg, 'err');
+    else setStatus(`Storico ${fmtDateIT(m.range_from)}→${fmtDateIT(m.range_to)} · as_of ${fmtDateIT(m.as_of)}`, 'ok');
+  } finally {
+    $('btn-holdout-load').disabled = false;
+  }
+}
+
+async function loadData() {
+  setStatus('Carico previsioni…');
+  try {
+    await loadForward();
+    await loadHoldoutIndex();
+    try {
+      await loadHoldoutMeta();
+    } catch (e) {
+      console.warn(e);
+      $('holdout-hint').textContent = String(e.message || e) + ' — riavvia il server BI per la selezione manuale.';
+    }
+  } catch (e) {
+    console.error(e);
+    setStatus('Errore: avvia il server BI (reports/serve_bi.py)', 'err');
+    $('meta-sub').textContent = 'Serve http://127.0.0.1:8765 — non aprire il file in file://';
+  }
+}
+
+async function loadSkuWindow() {
+  const q = ($('f-skuwin-q').value || $('f-modtescol').value || $('f-search').value || '').trim();
+  const dFrom = $('f-skuwin-from').value;
+  const dTo = $('f-skuwin-to').value;
+  if (!q) throw new Error('Indica SKU / modello (es. 020H3LI0KU)');
+  if (!dFrom || !dTo) throw new Error('Seleziona Dal e Al delle vendite reali');
+  if (dTo < dFrom) throw new Error('«Al» deve essere ≥ «Dal»');
+  setStatus('Carico vendite reali + forecast multi-orizzonte…');
+  $('btn-skuwin-load').disabled = true;
+  try {
+    const asOf = $('f-skuwin-asof').value;
+    let url = `/api/sku/window?q=${encodeURIComponent(q)}&from=${encodeURIComponent(dFrom)}&to=${encodeURIComponent(dTo)}`;
+    if (asOf) url += `&as_of=${encodeURIComponent(asOf)}`;
+    const res = await fetch(url);
+    const js = await res.json();
+    if (!res.ok || !js.ok) throw new Error((js && js.error) || ('HTTP ' + res.status));
+    applyPayload(js.data, buildRollFromRows(js.data));
+    $('f-search').value = '';
+    $('f-modtescol').value = '';
+    const m = js.data.meta || {};
+    const act = m.actuals || {};
+    setStatus(
+      `SKU ${m.query}: reale ${fmtDateIT(act.from)}→${fmtDateIT(act.to)} = ${(act.sum_y||0).toLocaleString('it')} pz · as_of ${fmtDateIT(m.as_of)}`,
+      'ok'
+    );
+    showTab('overview');
+  } finally {
+    $('btn-skuwin-load').disabled = false;
+  }
+}
+
+async function onModeChange() {
+  const mode = $('f-mode').value;
+  $('holdout-box').classList.toggle('hidden', mode !== 'holdout');
+  $('skuwin-box').classList.toggle('hidden', mode !== 'skuwin');
+  if (mode === 'holdout') {
+    setStatus('Imposta Dal/Al e premi «Carica prev. vs reale»', 'ok');
+  } else if (mode === 'skuwin') {
+    setStatus('Indica SKU + forbice vendite reali, poi «Carica reale + forecast»', 'ok');
+  } else if (FORWARD_CACHE) {
+    applyPayload(FORWARD_CACHE.pred, FORWARD_CACHE.roll);
+    setStatus('Operativo: previsioni future', 'ok');
+  } else {
+    await loadForward();
+  }
+}
+
+function fillFilterOptions() {
+  const f = ROLL.filters || {};
+  const keepVal = (id) => $(id).value;
+  const countryVal = keepVal('f-country'), pdvVal = keepVal('f-pdv'), tipoVal = keepVal('f-tipo'), clVal = keepVal('f-classe');
+  const country = $('f-country');
+  country.innerHTML = '<option value="">Tutti i paesi</option>';
+  (f.countries || []).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c;
+    o.textContent = `${countryName(c)} (${c})`;
+    country.appendChild(o);
+  });
+  country.value = [...country.options].some(o => o.value === countryVal) ? countryVal : '';
+  const pdv = $('f-pdv');
+  pdv.innerHTML = '<option value="">Tutti</option>';
+  (f.pdvs || []).forEach(p => {
+    const o = document.createElement('option'); o.value = p.pdv_id; o.textContent = p.label; pdv.appendChild(o);
+  });
+  pdv.value = [...pdv.options].some(o => o.value === pdvVal) ? pdvVal : '';
+  const tipo = $('f-tipo');
+  tipo.innerHTML = '<option value="">Tutte</option>';
+  (f.tipologie || []).forEach(c => {
+    const o = document.createElement('option'); o.value = c; o.textContent = c; tipo.appendChild(o);
+  });
+  tipo.value = [...tipo.options].some(o => o.value === tipoVal) ? tipoVal : '';
+  const cl = $('f-classe');
+  cl.innerHTML = '<option value="">Tutte</option>';
+  (f.classi || []).forEach(c => {
+    const o = document.createElement('option'); o.value = c; o.textContent = c; cl.appendChild(o);
+  });
+  cl.value = [...cl.options].some(o => o.value === clVal) ? clVal : '';
+  const dl = $('dl-modtescol');
+  dl.innerHTML = '';
+  const list = f.modtescols || [...new Set(ALL.map(modtescolOf))].sort();
+  list.slice(0, 800).forEach(c => {
+    const o = document.createElement('option'); o.value = c; dl.appendChild(o);
+  });
+}
+
+function v(row, key) {
+  const i = COL[key];
+  return i === undefined ? null : row[i];
+}
+
+function applyFilters() {
+  const q = $('f-search').value.trim().toLowerCase();
+  const country = $('f-country').value;
+  const pdv = $('f-pdv').value;
+  const tipo = $('f-tipo').value;
+  const classe = $('f-classe').value;
+  const sku = $('f-sku').value.trim().toLowerCase();
+  const mtRaw = $('f-modtescol').value.trim().toUpperCase();
+  const mt = mtRaw ? resolveModtescolKey(mtRaw) : '';
+  if (mt && mt !== mtRaw) $('f-modtescol').value = mt;
+  const minQty = Number($('f-minqty').value || 0);
+  const minErr = Number($('f-only-err').value || 0);
+  if (mt) selectedModtescol = mt;
+
+  FILTERED = ALL.filter(r => {
+    if (country && v(r,'country') !== country) return false;
+    if (pdv && v(r,'pdv_id') !== pdv) return false;
+    if (tipo && v(r,'tipologia') !== tipo) return false;
+    if (classe && v(r,'classe') !== classe) return false;
+    if (sku) {
+      const sid = String(v(r,'sku_id') || '').toLowerCase();
+      if (sid !== sku && !sid.includes(sku) && !modtescolMatch(r, sku.toUpperCase())) return false;
+    }
+    if (mt && !modtescolMatch(r, mt)) return false;
+    if (Number(v(r,'qty')) < minQty) return false;
+    if (minErr > 0 && Number(v(r,'err') || 0) < minErr) return false;
+    if (q) {
+      const blob = [v(r,'sku_id'), v(r,'modello'), v(r,'tessuto'), v(r,'colore'), modtescolOf(r), `${v(r,'modello')||''}${v(r,'colore')||''}`, v(r,'pdv_id'), v(r,'store'), v(r,'city'), v(r,'tipologia'), v(r,'classe'), v(r,'country')].join(' ').toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+  renderAll();
+}
+
+function kpi(lbl, val, hint='') {
+  return `<div class="kpi"><div class="lbl">${lbl}</div><div class="val">${val}</div>${hint?`<div class="hint">${hint}</div>`:''}</div>`;
+}
+
+function renderKpis() {
+  const n = FILTERED.length;
+  const predSum = FILTERED.reduce((s,r)=>s+Number(v(r,'pred')||0),0);
+  const pred90Sum = FILTERED.reduce((s,r)=>s+Number(v(r,'pred_90')||0),0);
+  const ySum = FILTERED.reduce((s,r)=>s+Number(v(r,'y')||0),0);
+  const y90Sum = FILTERED.reduce((s,r)=>s+Number(v(r,'y_90')||0),0);
+  const qtySum = FILTERED.reduce((s,r)=>s+Number(v(r,'qty')||0),0);
+  const hasY = (META.mode === 'holdout' || META.mode === 'sku_window') && FILTERED.some(r => v(r,'y') != null && v(r,'y') !== '');
+  const hasY90 = hasY && FILTERED.some(r => v(r,'y_90') != null && v(r,'y_90') !== '');
+  const mae = hasY && n ? FILTERED.reduce((s,r)=>s+Number(v(r,'err')||0),0)/n : null;
+  const mae90 = hasY90 && n ? FILTERED.reduce((s,r)=>s+Number(v(r,'err_90')||0),0)/n : null;
+  const nPdv = new Set(FILTERED.map(r=>v(r,'pdv_id'))).size;
+  const nMt = new Set(FILTERED.map(modtescolOf)).size;
+
+  if (META.mode === 'sku_window') {
+    const hz = META.horizons || {};
+    const act = META.actuals || {};
+    const p15 = FILTERED.reduce((s,r)=>s+Number(v(r,'pred_15') ?? v(r,'pred') ?? 0),0);
+    const p30 = FILTERED.reduce((s,r)=>s+Number(v(r,'pred_30')||0),0);
+    const p60 = FILTERED.reduce((s,r)=>s+Number(v(r,'pred_60')||0),0);
+    const p90 = FILTERED.reduce((s,r)=>s+Number(v(r,'pred_90')||0),0);
+    const yObs = FILTERED.reduce((s,r)=>s+Number(v(r,'y_obs') ?? v(r,'y') ?? 0),0);
+    $('kpis').innerHTML = [
+      kpi('Reale forbice', yObs.toFixed(0), `${fmtDateIT(act.from || META.range_from)} → ${fmtDateIT(act.to || META.range_to)}`),
+      kpi('Prev. 15 giorni', p15.toFixed(0), hz.d15 ? `${fmtDateIT(hz.d15.start)} → ${fmtDateIT(hz.d15.end)}${hz.d15.y!=null?` · reale ${hz.d15.y}`:''}` : ''),
+      kpi('Prev. 1 mese', p30.toFixed(0), hz.d30 ? `→ ${fmtDateIT(hz.d30.end)}${hz.d30.y!=null?` · reale ${hz.d30.y}`:''}` : 'pro-rata'),
+      kpi('Prev. 2 mesi', p60.toFixed(0), hz.d60 ? `→ ${fmtDateIT(hz.d60.end)}${hz.d60.y!=null?` · reale ${hz.d60.y}`:''}` : 'pro-rata'),
+      kpi('Prev. 3 mesi', p90.toFixed(0), hz.d90 ? `→ ${fmtDateIT(hz.d90.end)}${hz.d90.y!=null?` · reale ${hz.d90.y}`:''}` : 'h90'),
+      kpi('Negozi', String(nPdv), `${n.toLocaleString('it')} righe · ${META.n_sku || nMt} SKU`),
+    ].join('');
+    return;
+  }
+
+  const cards = [
+    kpi('Righe', n.toLocaleString('it'), `${nPdv} negozi · ${nMt} modtescol`),
+    kpi('Prev. 15gg', predSum.toFixed(0), `${fmtDateIT(META.horizon_start)} → ${fmtDateIT(META.horizon_end)}`),
+  ];
+  if (hasY) {
+    cards.push(kpi('Reale 15gg', ySum.toFixed(0), mae != null ? `MAE ${mae.toFixed(2)}` : 'venduto'));
+  }
+  cards.push(kpi('Prev. 3 mesi', pred90Sum.toFixed(0), META.horizon_90_end ? `→ ${fmtDateIT(META.horizon_90_end)}` : 'h90'));
+  if (hasY90) {
+    cards.push(kpi('Reale 3 mesi', y90Sum.toFixed(0), mae90 != null ? `MAE ${mae90.toFixed(2)}` : 'venduto'));
+  }
+  if (META.mode !== 'holdout') {
+    cards.push(kpi('Qty P50 (15gg)', qtySum.toLocaleString('it'), 'da valutare'));
+  }
+  $('kpis').innerHTML = cards.join('');
+}
+
+const COUNTRY_IT = {
+  ITA:'Italia', GBR:'Regno Unito', USA:'Stati Uniti', DEU:'Germania', FRA:'Francia',
+  CHN:'Cina', AUT:'Austria', ESP:'Spagna', IRL:'Irlanda', NLD:'Paesi Bassi',
+  CHE:'Svizzera', BEL:'Belgio', SWE:'Svezia', NOR:'Norvegia', LUX:'Lussemburgo',
+  AND:'Andorra', ARE:'Emirati', KOR:'Corea', SGP:'Singapore', THA:'Thailandia',
+  LBN:'Libano',
+};
+function countryName(code) {
+  return COUNTRY_IT[code] || code;
+}
+
+function renderAggTable(key, tableId, metric) {
+  const map = new Map();
+  FILTERED.forEach(r => {
+    const k = v(r, key);
+    const cur = map.get(k) || { key: k, pred: 0, pred90: 0, qty: 0, n: 0 };
+    cur.pred += Number(v(r, 'pred') || 0);
+    cur.pred90 += Number(v(r, 'pred_90') || 0);
+    cur.qty += Number(v(r, 'qty') || 0);
+    cur.n += 1;
+    map.set(k, cur);
+  });
+  const rows = [...map.values()].sort((a, b) => {
+    if (metric === 'qty') return b.qty - a.qty;
+    if (metric === 'pred90') return b.pred90 - a.pred90;
+    return b.pred - a.pred;
+  });
+  const labelCol = key === 'country' ? 'Paese' : (key === 'tipologia' ? 'Tipologia' : key);
+  const hold = META.mode === 'holdout';
+  // accumulate y if holdout
+  if (hold) {
+    FILTERED.forEach(r => {
+      const k = v(r, key);
+      const cur = map.get(k);
+      if (!cur) return;
+      cur.y = (cur.y || 0) + Number(v(r, 'y') || 0);
+      cur.y90 = (cur.y90 || 0) + Number(v(r, 'y_90') || 0);
+    });
+  }
+  $(tableId).querySelector('thead').innerHTML = hold
+    ? `<tr><th>${labelCol}</th><th class="num">Prev 15</th><th class="num">Reale 15</th><th class="num">Prev 90</th><th class="num">Reale 90</th></tr>`
+    : `<tr><th>${labelCol}</th><th class="num">Prev. 15gg</th><th class="num">Prev. 3mesi</th><th class="num">Qty 15gg</th><th class="num">Righe</th></tr>`;
+  $(tableId).querySelector('tbody').innerHTML = rows.slice(0, 15).map(r => {
+    const name = key === 'country' ? `${countryName(r.key)} (${r.key})` : r.key;
+    const click = key === 'country' ? ` data-country="${r.key}" style="cursor:pointer"` : '';
+    if (hold) {
+      return `<tr${click}><td>${name}</td><td class="num">${r.pred.toFixed(0)}</td><td class="num"><strong>${(r.y||0).toFixed(0)}</strong></td><td class="num">${r.pred90.toFixed(0)}</td><td class="num">${(r.y90||0).toFixed(0)}</td></tr>`;
+    }
+    return `<tr${click}><td>${name}</td><td class="num">${r.pred.toFixed(0)}</td><td class="num"><strong>${r.pred90.toFixed(0)}</strong></td><td class="num">${r.qty}</td><td class="num">${r.n}</td></tr>`;
+  }).join('') || '<tr><td colspan="5">Nessun dato</td></tr>';
+  if (key === 'country') {
+    $(tableId).querySelectorAll('tbody tr[data-country]').forEach(tr => {
+      tr.onclick = () => { $('f-country').value = tr.dataset.country; applyFilters(); };
+    });
+  }
+}
+
+function aggregateModtescol(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const k = modtescolOf(r);
+    const cur = map.get(k) || {
+      key: k, modello: v(r,'modello'), tessuto: v(r,'tessuto'), colore: v(r,'colore'),
+      tipologia: v(r,'tipologia'), pred: 0, pred90: 0, qty: 0, qty90: 0, giac: 0, n: 0,
+      skus: new Set(), pdvs: new Set(), countries: new Set(),
+    };
+    cur.pred += Number(v(r,'pred') || 0);
+    cur.pred90 += Number(v(r,'pred_90') || 0);
+    cur.qty += Number(v(r,'qty') || 0);
+    cur.qty90 += Number(v(r,'qty_90') || 0);
+    cur.giac += Number(v(r,'giacenza') || 0);
+    cur.n += 1;
+    cur.skus.add(v(r,'sku_id'));
+    cur.pdvs.add(v(r,'pdv_id'));
+    cur.countries.add(v(r,'country'));
+    map.set(k, cur);
+  });
+  return [...map.values()].map(x => ({
+    ...x, n_sku: x.skus.size, n_pdv: x.pdvs.size, n_country: x.countries.size,
+    label: `${x.modello || '—'} · ${x.tessuto || '—'} · ${x.colore || '—'}`,
+  }));
+}
+
+function renderModtescolTop() {
+  const rows = aggregateModtescol(FILTERED).sort((a,b)=>b.pred90-a.pred90).slice(0, 15);
+  $('tbl-modtescol-top').querySelector('thead').innerHTML =
+    '<tr><th>Modtescol</th><th>M · T · C</th><th class="num">15gg</th><th class="num">3 mesi</th><th class="num">SKU</th></tr>';
+  $('tbl-modtescol-top').querySelector('tbody').innerHTML = rows.map(r =>
+    `<tr data-mt="${r.key}" style="cursor:pointer"><td><strong>${r.key}</strong></td><td>${r.label}</td><td class="num">${r.pred.toFixed(0)}</td><td class="num"><strong>${r.pred90.toFixed(0)}</strong></td><td class="num">${r.n_sku}</td></tr>`
+  ).join('') || '<tr><td colspan="5">Nessun dato</td></tr>';
+  $('tbl-modtescol-top').querySelectorAll('tbody tr[data-mt]').forEach(tr => {
+    tr.onclick = () => openModtescol(tr.dataset.mt);
+  });
+}
+
+function renderModtescolTable() {
+  let rows = aggregateModtescol(FILTERED);
+  if (!['pred','pred90','qty','qty90','giac','n_sku','n_pdv','n_country','key','label','tipologia'].includes(mtSortKey)) {
+    mtSortKey = 'pred90';
+  }
+  rows.sort((a,b) => {
+    const av = a[mtSortKey], bv = b[mtSortKey];
+    if (typeof av === 'number') return (av - bv) * mtSortDir;
+    return String(av).localeCompare(String(bv)) * mtSortDir;
+  });
+  $('modtescol-count').textContent = `${rows.length.toLocaleString('it')} modtescol (modello+tessuto+colore)`;
+  const head = [
+    ['key','Codice'],['label','Modello · Tessuto · Colore'],['tipologia','Tipologia'],
+    ['pred','Prev 15gg',1],['pred90','Prev 3mesi',1],
+    ['qty','Qty 15gg',1],['qty90','Qty 3mesi',1],
+    ['n_sku','Taglie',1],['n_pdv','PDV',1],['n_country','Paesi',1],
+  ];
+  $('tbl-modtescol').querySelector('thead').innerHTML = '<tr>' + head.map(([k,l,num]) =>
+    `<th class="${num?'num':''}" data-k="${k}">${l}${mtSortKey===k?(mtSortDir<0?' ↓':' ↑'):''}</th>`
+  ).join('') + '</tr>';
+  $('tbl-modtescol').querySelector('tbody').innerHTML = rows.slice(0, 800).map(r =>
+    `<tr data-mt="${r.key}" style="cursor:pointer"${selectedModtescol===r.key?' class="sel"':''}>
+      <td><strong>${r.key}</strong></td><td>${r.label}</td><td>${r.tipologia || '—'}</td>
+      <td class="num">${r.pred.toFixed(1)}</td><td class="num"><strong>${r.pred90.toFixed(1)}</strong></td>
+      <td class="num">${r.qty}</td><td class="num">${r.qty90}</td>
+      <td class="num">${r.n_sku}</td><td class="num">${r.n_pdv}</td><td class="num">${r.n_country}</td></tr>`
+  ).join('') || '<tr><td colspan="10">Nessun dato</td></tr>';
+  $('tbl-modtescol').querySelectorAll('thead th[data-k]').forEach(th => {
+    th.onclick = () => {
+      const k = th.dataset.k;
+      if (mtSortKey === k) mtSortDir *= -1; else { mtSortKey = k; mtSortDir = -1; }
+      renderModtescolTable();
+    };
+  });
+  $('tbl-modtescol').querySelectorAll('tbody tr[data-mt]').forEach(tr => {
+    tr.onclick = () => openModtescol(tr.dataset.mt);
+  });
+  if (selectedModtescol) renderModtescolDetail(selectedModtescol);
+}
+
+function openModtescol(mt) {
+  selectedModtescol = mt;
+  $('f-modtescol').value = mt;
+  applyFilters();
+  showTab('modtescol');
+  renderModtescolDetail(mt);
+}
+
+function renderModtescolDetail(mt) {
+  const key = resolveModtescolKey(mt);
+  selectedModtescol = key;
+  const rows = ALL.filter(r => modtescolMatch(r, key));
+  // apply country/pdv/tipo filters except modtescol itself for country/pdv breakdown consistency with sidebar
+  const country = $('f-country').value;
+  const pdv = $('f-pdv').value;
+  const tipo = $('f-tipo').value;
+  const classe = $('f-classe').value;
+  const scoped = rows.filter(r => {
+    if (country && v(r,'country') !== country) return false;
+    if (pdv && v(r,'pdv_id') !== pdv) return false;
+    if (tipo && v(r,'tipologia') !== tipo) return false;
+    if (classe && v(r,'classe') !== classe) return false;
+    return true;
+  });
+  const first = scoped[0] || rows[0];
+  if (!first) {
+    $('modtescol-detail-lead').textContent = `Nessuna riga per ${mt}` +
+      (META.mode === 'holdout' ? ' in questo as_of/forbice (prodotto forse non ancora in sample).' : '');
+    return;
+  }
+  const canon = modtescolOf(first);
+  const pred = scoped.reduce((s,r)=>s+Number(v(r,'pred')||0),0);
+  const pred90 = scoped.reduce((s,r)=>s+Number(v(r,'pred_90')||0),0);
+  const qty = scoped.reduce((s,r)=>s+Number(v(r,'qty')||0),0);
+  const giac = scoped.reduce((s,r)=>s+Number(v(r,'giacenza')||0),0);
+  const nSku = new Set(scoped.map(r=>v(r,'sku_id'))).size;
+  const nPdv = new Set(scoped.map(r=>v(r,'pdv_id'))).size;
+  $('modtescol-detail-lead').innerHTML =
+    `<strong>${canon}</strong>`
+    + (String(mt).toUpperCase() !== String(canon).toUpperCase()
+      ? ` <span style="color:#9db0bc">(cercato ${String(mt).toUpperCase()})</span>` : '')
+    + ` = <strong>${v(first,'modello')}</strong> · <strong>${v(first,'tessuto')}</strong> · <strong>${v(first,'colore')}</strong>`
+    + ` · ${v(first,'tipologia') || ''} · paese: <strong>${country ? countryName(country)+' ('+country+')' : 'tutti'}</strong>`;
+  const y15 = scoped.reduce((s,r)=>s+Number(v(r,'y')||0),0);
+  const y90 = scoped.reduce((s,r)=>s+Number(v(r,'y_90')||0),0);
+  const mtCards = [
+    kpi('Prev. 15gg', pred.toFixed(0), `${fmtDateIT(META.horizon_start)} → ${fmtDateIT(META.horizon_end)}`),
+  ];
+  if (META.mode === 'holdout') mtCards.push(kpi('Reale 15gg', y15.toFixed(0), 'venduto'));
+  mtCards.push(kpi('Prev. 3 mesi', pred90.toFixed(0), META.horizon_90_end ? `→ ${fmtDateIT(META.horizon_90_end)}` : 'h90'));
+  if (META.mode === 'holdout' && META.horizon_90_end) mtCards.push(kpi('Reale 3 mesi', y90.toFixed(0), 'venduto'));
+  else mtCards.push(kpi('Taglie / Giac', `${nSku} / ${giac.toFixed(0)}`, `${nPdv} negozi · qty ${qty}`));
+  $('modtescol-kpis').innerHTML = mtCards.join('');
+
+  // by country
+  const byC = new Map();
+  scoped.forEach(r => {
+    const k = v(r,'country');
+    const cur = byC.get(k) || {key:k, pred:0, pred90:0, qty:0, n:0};
+    cur.pred += Number(v(r,'pred')||0); cur.pred90 += Number(v(r,'pred_90')||0);
+    cur.qty += Number(v(r,'qty')||0); cur.n += 1;
+    byC.set(k, cur);
+  });
+  const cRows = [...byC.values()].sort((a,b)=>b.pred90-a.pred90);
+  $('tbl-mt-country').querySelector('thead').innerHTML =
+    '<tr><th>Paese</th><th class="num">15gg</th><th class="num">3 mesi</th><th class="num">Qty</th></tr>';
+  $('tbl-mt-country').querySelector('tbody').innerHTML = cRows.map(r =>
+    `<tr data-country="${r.key}" style="cursor:pointer"><td>${countryName(r.key)} (${r.key})</td><td class="num">${r.pred.toFixed(0)}</td><td class="num"><strong>${r.pred90.toFixed(0)}</strong></td><td class="num">${r.qty}</td></tr>`
+  ).join('') || '<tr><td colspan="4">—</td></tr>';
+  $('tbl-mt-country').querySelectorAll('tr[data-country]').forEach(tr => {
+    tr.onclick = () => { $('f-country').value = tr.dataset.country; applyFilters(); renderModtescolDetail(mt); };
+  });
+
+  // by pdv
+  const byP = new Map();
+  scoped.forEach(r => {
+    const k = v(r,'pdv_id');
+    const cur = byP.get(k) || {key:k, store:v(r,'store'), country:v(r,'country'), pred:0, pred90:0, qty:0};
+    cur.pred += Number(v(r,'pred')||0); cur.pred90 += Number(v(r,'pred_90')||0);
+    cur.qty += Number(v(r,'qty')||0);
+    byP.set(k, cur);
+  });
+  const pRows = [...byP.values()].sort((a,b)=>b.pred90-a.pred90).slice(0, 80);
+  $('tbl-mt-pdv').querySelector('thead').innerHTML =
+    '<tr><th>Negozio</th><th>Paese</th><th class="num">15gg</th><th class="num">3 mesi</th></tr>';
+  $('tbl-mt-pdv').querySelector('tbody').innerHTML = pRows.map(r =>
+    `<tr><td>${r.store} (${r.key})</td><td>${countryName(r.country)}</td><td class="num">${r.pred.toFixed(0)}</td><td class="num"><strong>${r.pred90.toFixed(0)}</strong></td></tr>`
+  ).join('') || '<tr><td colspan="4">—</td></tr>';
+
+  // by sku (size)
+  const byS = new Map();
+  scoped.forEach(r => {
+    const k = v(r,'sku_id');
+    const cur = byS.get(k) || {key:k, pred:0, pred90:0, qty:0, giac:0, n:0};
+    cur.pred += Number(v(r,'pred')||0); cur.pred90 += Number(v(r,'pred_90')||0);
+    cur.qty += Number(v(r,'qty')||0);
+    cur.giac += Number(v(r,'giacenza')||0); cur.n += 1;
+    byS.set(k, cur);
+  });
+  const sRows = [...byS.values()].sort((a,b)=>b.pred90-a.pred90);
+  $('tbl-mt-sku').querySelector('thead').innerHTML =
+    '<tr><th>SKU (taglia)</th><th class="num">Prev 15gg</th><th class="num">Prev 3mesi</th><th class="num">Giacenza</th><th class="num">Negozi</th></tr>';
+  $('tbl-mt-sku').querySelector('tbody').innerHTML = sRows.map(r =>
+    `<tr data-sku="${r.key}" style="cursor:pointer"><td>${r.key}</td><td class="num">${r.pred.toFixed(1)}</td><td class="num"><strong>${r.pred90.toFixed(1)}</strong></td><td class="num">${r.giac.toFixed(0)}</td><td class="num">${r.n}</td></tr>`
+  ).join('') || '<tr><td colspan="5">—</td></tr>';
+  $('tbl-mt-sku').querySelectorAll('tr[data-sku]').forEach(tr => {
+    tr.onclick = () => openSku(tr.dataset.sku);
+  });
+}
+
+function renderPdvTable() {
+  const map = new Map();
+  FILTERED.forEach(r => {
+    const k = v(r,'pdv_id');
+    const cur = map.get(k) || {pdv:k, store:v(r,'store'), city:v(r,'city'), country:v(r,'country'), pred:0, pred90:0, y:0, qty:0, err:0, n:0};
+    cur.pred += Number(v(r,'pred') || 0);
+    cur.pred90 += Number(v(r,'pred_90') || 0);
+    cur.y += Number(v(r,'y') || 0);
+    cur.qty += Number(v(r,'qty') || 0);
+    cur.err += Number(v(r,'err') || 0);
+    cur.n += 1;
+    map.set(k, cur);
+  });
+  const rows = [...map.values()].sort((a,b)=>b.pred90-a.pred90);
+  $('tbl-pdv').querySelector('thead').innerHTML = META.mode === 'forward'
+    ? '<tr><th>PDV</th><th>Negozio</th><th>Paese</th><th class="num">Prev 15gg</th><th class="num">Prev 3mesi</th><th class="num">Qty 15gg</th></tr>'
+    : '<tr><th>PDV</th><th>Negozio</th><th>Paese</th><th class="num">Prev.</th><th class="num">Venduto</th><th class="num">MAE</th><th class="num">Qty</th></tr>';
+  $('tbl-pdv').querySelector('tbody').innerHTML = rows.map(r => META.mode === 'forward'
+    ? `<tr data-pdv="${r.pdv}" style="cursor:pointer"><td>${r.pdv}</td><td>${r.store}</td><td>${countryName(r.country)}</td><td class="num">${r.pred.toFixed(0)}</td><td class="num"><strong>${r.pred90.toFixed(0)}</strong></td><td class="num">${r.qty}</td></tr>`
+    : `<tr data-pdv="${r.pdv}" style="cursor:pointer"><td>${r.pdv}</td><td>${r.store}</td><td>${countryName(r.country)}</td><td class="num">${r.pred.toFixed(0)}</td><td class="num">${r.y.toFixed(0)}</td><td class="num">${(r.err/r.n).toFixed(2)}</td><td class="num"><strong>${r.qty}</strong></td></tr>`
+  ).join('');
+  $('tbl-pdv').querySelectorAll('tbody tr').forEach(tr => {
+    tr.onclick = () => { $('f-pdv').value = tr.dataset.pdv; applyFilters(); showTab('rows'); };
+  });
+}
+
+function sortRows(rows) {
+  const idx = COL[sortKey];
+  return [...rows].sort((a,b) => {
+    const av = a[idx], bv = b[idx];
+    if (typeof av === 'number' || !isNaN(Number(av))) return (Number(av)-Number(bv)) * sortDir;
+    return String(av).localeCompare(String(bv)) * sortDir;
+  });
+}
+
+function parseDrivers(pack) {
+  if (!pack) return [];
+  return String(pack).split(';').filter(Boolean).map(x => {
+    const [lab, d] = x.split('|');
+    return { lab, d: Number(d) };
+  });
+}
+
+function whyHtml(r) {
+  const why = v(r, 'why') || 'Motivazione non disponibile.';
+  const drivers = parseDrivers(v(r, 'drivers'));
+  const lis = drivers.map(d => {
+    const cls = d.d >= 0 ? 'up' : 'down';
+    const sign = d.d >= 0 ? '+' : '';
+    return `<li><span class="${cls}">${sign}${d.d.toFixed(1)}</span> ${d.lab}</li>`;
+  }).join('');
+  return `<div class="detail">
+    <div>${why}</div>
+    ${lis ? `<div class="chart-title" style="margin-top:8px;font-size:0.78rem;color:var(--muted);text-transform:uppercase">Feature più influenti</div><ul class="drivers">${lis}</ul>` : ''}
+  </div>`;
+}
+
+let openWhyKey = null;
+function rowKey(r) { return v(r,'pdv_id') + '|' + v(r,'sku_id'); }
+
+function renderRowsTable() {
+  const rows = sortRows(FILTERED).slice(0, 1500);
+  $('rows-count').textContent = `${FILTERED.length.toLocaleString('it')} righe (mostro max 1.500)`;
+  const head = [
+    ['country','Paese'],['pdv_id','PDV'],['store','Negozio'],['sku_id','SKU'],['modtescol','Modtescol'],
+    ['tipologia','Tipologia'],['pred','Prev 15gg',1],['pred_90','Prev 3mesi',1],['pred_p80','P80',1],
+    ['giacenza','Giac',1],['qty','Qty',1],['qty_p80','Qty80',1],
+  ];
+  if (META.mode === 'holdout') {
+    head.splice(7, 0, ['y','Reale 15',1], ['err','|err|',1]);
+    head.splice(10, 0, ['y_90','Reale 90',1]);
+  }
+  $('tbl-rows').querySelector('thead').innerHTML = '<tr>' + head.map(([k,l,num]) =>
+    `<th class="${num?'num':''}" data-k="${k}">${l}${sortKey===k?(sortDir<0?' ↓':' ↑'):''}</th>`
+  ).join('') + '<th></th></tr>';
+  let body = '';
+  rows.forEach(r => {
+    const k = rowKey(r);
+    const open = openWhyKey === k;
+    const mt = modtescolOf(r);
+    const headCells = `<td>${countryName(v(r,'country'))}</td><td>${v(r,'pdv_id')}</td><td>${v(r,'store')}</td>
+      <td>${v(r,'sku_id')}</td><td><a href="#" data-mt="${mt}" class="mt-link" title="${v(r,'modello')} · ${v(r,'tessuto')} · ${v(r,'colore')}">${mt}</a></td><td>${v(r,'tipologia')}</td>`;
+    let mid;
+    if (META.mode === 'holdout') {
+      mid = `<td class="num">${Number(v(r,'pred')).toFixed(1)}</td>
+        <td class="num"><strong>${Number(v(r,'y')||0).toFixed(1)}</strong></td>
+        <td class="num">${Number(v(r,'err')||0).toFixed(1)}</td>
+        <td class="num">${Number(v(r,'pred_90')||0).toFixed(1)}</td>
+        <td class="num"><strong>${v(r,'y_90')==null?'—':Number(v(r,'y_90')).toFixed(1)}</strong></td>
+        <td class="num">${Number(v(r,'pred_p80')).toFixed(1)}</td>`;
+    } else {
+      mid = `<td class="num">${Number(v(r,'pred')).toFixed(1)}</td>
+        <td class="num"><strong>${Number(v(r,'pred_90')||0).toFixed(1)}</strong></td>
+        <td class="num">${Number(v(r,'pred_p80')).toFixed(1)}</td>`;
+    }
+    body += `<tr data-sku="${v(r,'sku_id')}" data-key="${k}">${headCells}${mid}
+      <td class="num">${Number(v(r,'giacenza')).toFixed(0)}</td>
+      <td class="num"><strong>${v(r,'qty')}</strong></td>
+      <td class="num">${v(r,'qty_p80')}</td>
+      <td><button type="button" class="btn-why ${open?'active':''}" data-why="${k}">${open?'Chiudi':'Perché'}</button></td></tr>`;
+    if (open) {
+      const colspan = head.length + 1;
+      body += `<tr class="why-expand"><td colspan="${colspan}">${whyHtml(r)}</td></tr>`;
+    }
+  });
+  $('tbl-rows').querySelector('tbody').innerHTML = body;
+  $('tbl-rows').querySelectorAll('thead th[data-k]').forEach(th => {
+    th.onclick = () => {
+      const k = th.dataset.k;
+      if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = -1; }
+      renderRowsTable();
+    };
+  });
+  $('tbl-rows').querySelectorAll('tbody tr[data-sku]').forEach(tr => {
+    tr.onclick = (ev) => {
+      if (ev.target.closest('.btn-why') || ev.target.closest('.mt-link')) return;
+      openSku(tr.dataset.sku);
+    };
+  });
+  $('tbl-rows').querySelectorAll('.mt-link').forEach(a => {
+    a.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); openModtescol(a.dataset.mt); };
+  });
+  $('tbl-rows').querySelectorAll('.btn-why').forEach(btn => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      const k = btn.dataset.why;
+      openWhyKey = openWhyKey === k ? null : k;
+      renderRowsTable();
+    };
+  });
+}
+
+function renderPrio() {
+  const rows = [...FILTERED].filter(r => Number(v(r,'qty')) > 0).sort((a,b)=>Number(v(b,'qty'))-Number(v(a,'qty'))).slice(0, 500);
+  $('prio-count').textContent = `${rows.length} priorità (max 500)`;
+  $('tbl-prio').querySelector('thead').innerHTML = '<tr><th>#</th><th>Paese</th><th>PDV</th><th>SKU</th><th>Modello</th><th>Tipologia</th><th class="num">Pred</th><th class="num">Giac</th><th class="num">Qty</th><th class="num">Qty P80</th></tr>';
+  $('tbl-prio').querySelector('tbody').innerHTML = rows.map((r,i) =>
+    `<tr data-sku="${v(r,'sku_id')}" style="cursor:pointer"><td>${i+1}</td><td>${v(r,'country')}</td><td>${v(r,'pdv_id')}</td><td>${v(r,'sku_id')}</td><td>${v(r,'modello')}</td><td>${v(r,'tipologia')}</td><td class="num">${Number(v(r,'pred')).toFixed(1)}</td><td class="num">${Number(v(r,'giacenza')).toFixed(0)}</td><td class="num"><strong>${v(r,'qty')}</strong></td><td class="num">${v(r,'qty_p80')}</td></tr>`
+  ).join('');
+  $('tbl-prio').querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => openSku(tr.dataset.sku));
+}
+
+function openSku(sku) {
+  selectedSku = sku;
+  $('sku-pick').value = sku;
+  $('f-sku').value = sku;
+  showTab('sku');
+  renderSku();
+}
+
+function renderSku() {
+  const sku = ($('sku-pick').value || selectedSku || '').trim();
+  if (!sku) { $('sku-meta').textContent = 'Nessuno SKU selezionato'; return; }
+  const rows = ALL.filter(r => String(v(r,'sku_id')) === sku);
+  if (!rows.length) { $('sku-meta').textContent = 'SKU non trovato in questo as_of'; return; }
+  const first = rows[0];
+  $('sku-meta').textContent = `${modtescolOf(first)} = ${v(first,'modello')} · ${v(first,'tessuto')} · ${v(first,'colore')} · ${v(first,'tipologia')} · ${v(first,'classe')}`;
+  const pred = rows.reduce((s,r)=>s+Number(v(r,'pred')),0);
+  const qty = rows.reduce((s,r)=>s+Number(v(r,'qty')),0);
+  const pred90 = rows.reduce((s,r)=>s+Number(v(r,'pred_90')||0),0);
+  const cards = [
+    kpi('Negozi', String(rows.length)),
+    kpi('Prev. 15gg', pred.toFixed(1)),
+    kpi('Prev. 3 mesi', pred90.toFixed(1)),
+    kpi('Qty tot.', String(qty)),
+  ];
+  if (META.mode !== 'forward') {
+    const y = rows.reduce((s,r)=>s+Number(v(r,'y')||0),0);
+    const mae = rows.reduce((s,r)=>s+Number(v(r,'err')||0),0)/rows.length;
+    cards.splice(2, 0, kpi('Venduto', y.toFixed(1), `MAE ${mae.toFixed(2)}`));
+  }
+  $('sku-kpis').innerHTML = cards.join('');
+
+  // ranking chiaro: negozio con nome, non barre anonime
+  const ranked = [...rows].sort((a,b)=>Number(v(b,'pred_90')||0)-Number(v(a,'pred_90')||0));
+  $('tbl-sku-rank').querySelector('thead').innerHTML =
+    '<tr><th>#</th><th>Negozio</th><th>Paese</th><th class="num">Prev 15gg</th><th class="num">Prev 3mesi</th><th class="num">Giacenza</th><th class="num">Qty</th><th></th></tr>';
+  $('tbl-sku-rank').querySelector('tbody').innerHTML = ranked.map((r, i) => {
+    const k = rowKey(r);
+    const open = openWhyKey === k;
+    const store = `${v(r,'store')} (${v(r,'pdv_id')})`;
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${store}</td>
+      <td>${countryName(v(r,'country'))}</td>
+      <td class="num">${Number(v(r,'pred')).toFixed(1)}</td>
+      <td class="num"><strong>${Number(v(r,'pred_90')||0).toFixed(1)}</strong></td>
+      <td class="num">${Number(v(r,'giacenza')).toFixed(0)}</td>
+      <td class="num"><strong>${v(r,'qty')}</strong></td>
+      <td><button type="button" class="btn-why ${open?'active':''}" data-why="${k}">${open?'Chiudi':'Perché'}</button></td>
+    </tr>${open ? `<tr class="why-expand"><td colspan="8">${whyHtml(r)}</td></tr>` : ''}`;
+  }).join('');
+  $('tbl-sku-rank').querySelectorAll('.btn-why').forEach(btn => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      const k = btn.dataset.why;
+      openWhyKey = openWhyKey === k ? null : k;
+      renderSku();
+    };
+  });
+
+  // dettaglio tecnico sotto (stessa lista, con P80)
+  const byP = ranked;
+
+  $('tbl-sku').querySelector('thead').innerHTML = META.mode === 'forward'
+    ? '<tr><th>Paese</th><th>PDV</th><th>Negozio</th><th class="num">Prev 15gg</th><th class="num">P80</th><th class="num">Giac</th><th class="num">Qty</th><th class="num">Qty80</th><th></th></tr>'
+    : '<tr><th>Paese</th><th>PDV</th><th>Negozio</th><th class="num">Pred</th><th class="num">P80</th><th class="num">y</th><th class="num">Err</th><th class="num">Giac</th><th class="num">Qty</th><th class="num">Qty80</th><th></th></tr>';
+  let skuBody = '';
+  byP.forEach(r => {
+    const k = rowKey(r);
+    const open = openWhyKey === k;
+    if (META.mode === 'forward') {
+      skuBody += `<tr data-key="${k}"><td>${countryName(v(r,'country'))}</td><td>${v(r,'pdv_id')}</td><td>${v(r,'store')}</td>
+     <td class="num">${Number(v(r,'pred')).toFixed(1)}</td><td class="num">${Number(v(r,'pred_p80')).toFixed(1)}</td>
+     <td class="num">${Number(v(r,'giacenza')).toFixed(0)}</td><td class="num"><strong>${v(r,'qty')}</strong></td><td class="num">${v(r,'qty_p80')}</td>
+     <td><button type="button" class="btn-why ${open?'active':''}" data-why="${k}">${open?'Chiudi':'Perché'}</button></td></tr>`;
+    } else {
+      skuBody += `<tr data-key="${k}"><td>${countryName(v(r,'country'))}</td><td>${v(r,'pdv_id')}</td><td>${v(r,'store')}</td>
+     <td class="num">${Number(v(r,'pred')).toFixed(1)}</td><td class="num">${Number(v(r,'pred_p80')).toFixed(1)}</td>
+     <td class="num">${Number(v(r,'y')).toFixed(1)}</td><td class="num">${Number(v(r,'err')).toFixed(1)}</td>
+     <td class="num">${Number(v(r,'giacenza')).toFixed(0)}</td><td class="num"><strong>${v(r,'qty')}</strong></td><td class="num">${v(r,'qty_p80')}</td>
+     <td><button type="button" class="btn-why ${open?'active':''}" data-why="${k}">${open?'Chiudi':'Perché'}</button></td></tr>`;
+    }
+    if (open) {
+      skuBody += `<tr class="why-expand"><td colspan="11">${whyHtml(r)}</td></tr>`;
+    }
+  });
+  $('tbl-sku').querySelector('tbody').innerHTML = skuBody;
+  $('tbl-sku').querySelectorAll('.btn-why').forEach(btn => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      const k = btn.dataset.why;
+      openWhyKey = openWhyKey === k ? null : k;
+      renderSku();
+    };
+  });
+}
+
+function renderAll() {
+  renderKpis();
+  renderAggTable('country', 'tbl-country-agg', 'pred');
+  renderAggTable('tipologia', 'tbl-tipo-agg', 'qty');
+  renderModtescolTop();
+  renderModtescolTable();
+  renderPdvTable();
+  renderRowsTable();
+  renderPrio();
+  if (selectedSku || $('sku-pick').value) renderSku();
+  if (selectedModtescol || $('f-modtescol').value) renderModtescolDetail(selectedModtescol || $('f-modtescol').value.trim().toUpperCase());
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  $('tab-' + name).classList.remove('hidden');
+}
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => showTab(t.dataset.tab));
+$('btn-apply').onclick = applyFilters;
+$('btn-reset').onclick = () => {
+  ['f-search','f-sku','sku-pick','f-modtescol'].forEach(id => $(id).value = '');
+  ['f-country','f-pdv','f-tipo','f-classe'].forEach(id => $(id).value = '');
+  $('f-minqty').value = 0; $('f-only-err').value = 0;
+  selectedSku = '';
+  selectedModtescol = '';
+  applyFilters();
+};
+$('btn-sku-go').onclick = () => openSku($('sku-pick').value.trim());
+['f-country','f-pdv','f-tipo','f-classe'].forEach(id => $(id).onchange = applyFilters);
+$('f-search').onkeydown = (e) => { if (e.key === 'Enter') applyFilters(); };
+$('f-sku').onkeydown = (e) => { if (e.key === 'Enter') applyFilters(); };
+$('f-modtescol').onkeydown = (e) => { if (e.key === 'Enter') applyFilters(); };
+$('f-modtescol').onchange = applyFilters;
+$('f-mode').onchange = () => { onModeChange().catch(e => { console.error(e); setStatus(String(e.message||e), 'err'); }); };
+$('btn-holdout-load').onclick = () => {
+  loadHoldoutRange().catch(e => { console.error(e); setStatus(String(e.message||e), 'err'); });
+};
+$('btn-skuwin-load').onclick = () => {
+  loadSkuWindow().catch(e => { console.error(e); setStatus(String(e.message||e), 'err'); });
+};
+$('f-skuwin-q').onkeydown = (e) => { if (e.key === 'Enter') $('btn-skuwin-load').click(); };
+$('f-asof').onchange = () => {
+  if ($('f-mode').value !== 'holdout') return;
+  const file = $('f-asof').value;
+  if (file) loadHoldoutFile(file).catch(e => { console.error(e); setStatus(String(e.message||e), 'err'); });
+};
+
+$('btn-export').onclick = () => {
+  const cols = Object.keys(COL).sort((a,b)=>COL[a]-COL[b]);
+  const lines = [cols.join(';')];
+  FILTERED.forEach(r => lines.push(cols.map(c => {
+    const x = v(r,c);
+    const s = String(x).replaceAll('"','""');
+    return /[;"]/.test(s) ? `"${s}"` : s;
+  }).join(';')));
+  const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `forecast_filtro_${META.as_of || 'export'}.csv`;
+  a.click();
+};
+
+loadData();
+</script>
+</body>
+</html>

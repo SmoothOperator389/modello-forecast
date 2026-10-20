@@ -1,0 +1,47 @@
+{
+  "modello_cdm": "020H3LI0KU",
+  "modello": "020H3LI",
+  "colore": "0KU",
+  "skus": [
+    "020H3LI0360KU",
+    "020H3LI0380KU",
+    "020H3LI0400KU",
+    "020H3LI0420KU"
+  ],
+  "as_of": "2025-08-31",
+  "week36": "2025-09-01 → 2025-09-07",
+  "horizon_15d": "2025-09-01 → 2025-09-15",
+  "note": "Il modello prevede 15gg; pred_week36 = pred_15d × 7/15 (pro-rata).",
+  "week36_model": {
+    "n": 62,
+    "sum_y": 162.0,
+    "sum_pred": 127.0,
+    "mae": 1.99,
+    "wmape": 76.0,
+    "bias": -35.0
+  },
+  "week36_naive": {
+    "n": 62,
+    "sum_y": 162.0,
+    "sum_pred": 0.0,
+    "mae": 2.61,
+    "wmape": 100.0,
+    "bias": -162.0
+  },
+  "h15_model": {
+    "n": 62,
+    "sum_y": 394.0,
+    "sum_pred": 272.1,
+    "mae": 3.33,
+    "wmape": 52.4,
+    "bias": -121.9
+  },
+  "h15_naive": {
+    "n": 62,
+    "sum_y": 394.0,
+    "sum_pred": 0.0,
+    "mae": 6.35,
+    "wmape": 100.0,
+    "bias": -394.0
+  }
+}
