@@ -55,3 +55,6 @@ BI: `http://10.11.1.139:8765`
 
 - Probe SSH: `logs/vm_ssh_probe.log` (PID in `logs/vm_ssh_probe.pid`)
 - Handoff peer/Mac: store `HANDOFF_P0_H30.md`
+
+## Retry log
+- 2026-11-12 17:18 Europe/Rome: SSH ancora chiuso; worker BERGANTINO-MAC **disconnesso**; secrets assenti. Probe SSH mantenuto.
