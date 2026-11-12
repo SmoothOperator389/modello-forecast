@@ -2,9 +2,9 @@
 
 ## Verdetto
 
-**Blocco rete:** il cloud agent managed **non raggiunge** `modelcdm@10.11.1.139` (ping/SSH timeout su LAN `10.11.0.0/16`). Retrain VM, holdout Sep/Oct e wMAPE before/after **non ancora eseguibili** da questo pod. Worker Mac **BERGANTINO-MAC** è connected e in LAN: va usato come jump / My Machine, oppure Tailscale/`CURSOR_API_KEY`.
+**Blocco rete (ancora attivo, retry Europe/Rome 17:06):** il cloud agent managed **non raggiunge** `modelcdm@10.11.1.139` (ping/SSH timeout). Nessun `CURSOR_API_KEY` / `TS_AUTHKEY` in env. Worker Mac **BERGANTINO-MAC** connected + `eligibleForSubagent`, ma da questo runtime non c’è tool CreateAgent/API key per spawnarlo. Retrain VM / holdout Sep after **pending**.
 
-Policy **Jul/Aug = NON AFFIDABILE** è codificata: **nessuna attesa Export luglio**.
+Policy **Jul/Aug = NON AFFIDABILE** è codificata: **nessuna attesa Export luglio**. BI API: `/api/month/reliability`, `/api/scoreboard`.
 
 ## Cosa è stato preparato nel repo (branch `cursor/p0-h30-sku-quality-5008`)
 

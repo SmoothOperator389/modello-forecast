@@ -143,6 +143,71 @@ class Handler(SimpleHTTPRequestHandler):
                 self._json(500, {"ok": False, "error": str(exc)})
             return
 
+        # P0: Confronta mesi — Jul/Aug NON AFFIDABILE (no wait Export luglio)
+        if parsed.path == "/api/month/reliability":
+            try:
+                from production.ops.month_reliability import (
+                    NON_AFFIDABILE_LABEL,
+                    NON_AFFIDABILE_MONTHS,
+                    NON_AFFIDABILE_REASON,
+                    month_status,
+                )
+
+                year = int((urllib.parse.parse_qs(parsed.query).get("year") or ["2025"])[0])
+                months = [
+                    month_status(year, m)
+                    for m in range(1, 13)
+                ]
+                self._json(
+                    200,
+                    {
+                        "ok": True,
+                        "year": year,
+                        "non_affidabile_months": sorted(NON_AFFIDABILE_MONTHS),
+                        "label": NON_AFFIDABILE_LABEL,
+                        "reason": NON_AFFIDABILE_REASON,
+                        "months": months,
+                        "fair_compare_months": [m["month"] for m in months if m["include_in_fair_compare"]],
+                    },
+                )
+            except Exception as exc:  # noqa: BLE001
+                traceback.print_exc()
+                self._json(500, {"ok": False, "error": str(exc)})
+            return
+
+        # P0 scoreboard: CDM top-80 headline (payload precomputato se presente)
+        if parsed.path == "/api/scoreboard":
+            try:
+                path = ROOT / "data" / "bi_scoreboard.json"
+                if path.exists():
+                    payload = json.loads(path.read_text(encoding="utf-8"))
+                    self._json(200, {"ok": True, "data": payload, "source": str(path.name)})
+                    return
+                self._json(
+                    200,
+                    {
+                        "ok": True,
+                        "data": {
+                            "policy": {
+                                "jul_aug": "NON AFFIDABILE — esclusi dal fair compare",
+                                "headline": "CDM top-80",
+                                "secondary": "catalog",
+                            },
+                            "headline_cdm_top80": None,
+                            "catalog": None,
+                            "note": (
+                                "Manca reports/data/bi_scoreboard.json — "
+                                "generalo con production.ops.bi_scoreboard dopo holdout Sep."
+                            ),
+                        },
+                        "source": None,
+                    },
+                )
+            except Exception as exc:  # noqa: BLE001
+                traceback.print_exc()
+                self._json(500, {"ok": False, "error": str(exc)})
+            return
+
         return super().do_GET()
 
 
@@ -159,7 +224,8 @@ def main() -> None:
         print(f"BI CDM → {url}")
         print(
             "API: /api/holdout/meta | /api/holdout/range?from=&to= | "
-            "/api/holdout/as_of?as_of= | /api/sku/window?q=&from=&to="
+            "/api/holdout/as_of?as_of= | /api/sku/window?q=&from=&to= | "
+            "/api/month/reliability | /api/scoreboard"
         )
         print("Ctrl+C per chiudere")
         try:
